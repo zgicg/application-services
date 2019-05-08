@@ -19,6 +19,23 @@ use std::os::raw::c_char;
 /// has been provided. Most of the time, this should not be necessary, and users
 /// should accept `FfiStr` in the parameter list directly.
 ///
+/// ## Conversions
+///
+/// Several conversion functions are provided depending on your needs:
+///
+/// | Function                    | You want         | Handling of null | Handling of invalid utf8 | Notes |
+/// | :-------------------------- | :-------         | :--------------- | :----------------------- | :---- |
+/// | [`FfiStr::as_str`]          | `&str`           | Panics           | Panics | N/A |
+/// | [`FfiStr::as_opt_str`]      | `Option<&str>`   | `None`           | `None` | A warning is logged for invalid utf8, but the warning has no PII |
+/// | [`FfiStr::into_string`]     | `String`         | Panics           | Replace with replacement char | Uses `String::from_utf8_lossy` |
+/// | [`FfiStr::into_opt_string`] | `Option<String>` | `None`           | Replace with replacement char | Uses `String::from_utf8_lossy` |
+/// | [`FfiStr::as_bytes`]        | `&[u8]`          | Panics           | Allowed | Input ends at first nul byte, which is not included |
+/// | [`FfiStr::as_opt_bytes`]    | `Option<&[u8]>`  | `None`           | Allowed | Input ends at first nul byte, which is not inclued |
+/// | [`FfiStr::as_os_str`]       | `&OsStr`         | Panics           | Allowed on unix, panics on windows | See doc for platform weirdness |
+/// | [`FfiStr::as_opt_os_str`]   | `Option<&OsStr>` | `None`           | Allowed on unix, `None` on windows | See doc for platform weirdness |
+/// | [`FfiStr::as_path`]         | `&Path`          | Panics           | Allowed on unix, panics on windows | See doc for platform weirdness |
+/// | [`FfiStr::as_opt_path`]     | `Option<&Path>`  | `None`           | Allowed on unix, `None` on windows | See doc for platform weirdness |
+///
 /// ## Caveats
 ///
 /// An effort has been made to make this struct hard to misuse, however it is
@@ -149,6 +166,108 @@ impl<'a> FfiStr<'a> {
         self.into_opt_string()
             .expect("Unexpected null string pointer passed to rust")
     }
+
+    /// Get an `Option<&[u8]>` out of the `FfiStr`. If this stores a null
+    /// pointer, then None will be returned. This is similar to `as_str()`,
+    /// however it doesn't mind non-utf8 "strings". Input is assumed to end at the
+    /// first NUL byte which is *not* included.
+    ///
+    /// See the "Conversions" section in the [`FfiStr`] documentation for more
+    /// info and other functions which may be more useful to you.
+    pub fn as_opt_bytes(&self) -> Option<&'a [u8]> {
+        if self.cstr.is_null() {
+            return None;
+        }
+        unsafe {
+            let end = libc::strlen(self.cstr) as usize;
+            Some(std::slice::from_raw_parts(self.cstr as *const u8, end))
+        }
+    }
+
+    /// Get an `&[u8]` out of the `FfiStr`. If this stores a null pointer, then
+    /// we'll panic. This is similar to `as_opt_str()`, however it doesn't mind
+    /// non-utf8 "strings". Input is assumed to end at the first NUL byte which
+    /// is *not* included.
+    ///
+    /// See the "Conversions" section in the [`FfiStr`] documentation for more
+    /// info and other functions which may be more useful to you.
+    pub fn as_bytes(&self) -> &'a [u8] {
+        self.as_opt_bytes()
+            .expect("Unexpected null pointer passed to rust")
+    }
+
+    /// Get an `Option<&OsStr>` out of the `FfiStr`. If this stores a null
+    /// pointer, then None will be returned. This is similar to `as_str()`,
+    /// however it doesn't mind non-utf8 "strings". Input is assumed to end at
+    /// the first NUL byte which is *not* included.
+    ///
+    /// Note that on windows, this returns None (and warns) if the string is not
+    /// valid utf-8. This is not ideal, but is unavoidable at the moment (OsStr
+    /// on windows uses WTF-8 encoding, which will basically never come from
+    /// anything other than rust itself).
+    ///
+    /// See the "Conversions" section in the [`FfiStr`] documentation for more
+    /// info and other functions which may be more useful to you.
+    pub fn as_opt_os_str(&self) -> Option<&'a std::ffi::OsStr> {
+        #[cfg(unix)]
+        {
+            use std::os::unix::ffi::OsStrExt;
+            self.as_opt_bytes().map(OsStrExt::from_bytes)
+        }
+        #[cfg(not(unix))]
+        {
+            self.as_opt_str().map(std::ffi::OsStr::from)
+        }
+    }
+
+    /// Get an `Option<&OsStr>` out of the `FfiStr`. If this stores a null
+    /// pointer, then None will be returned. This is similar to `as_str()`,
+    /// however it doesn't mind non-utf8 "strings". Input is assumed to end at
+    /// the first NUL byte which is *not* included.
+    ///
+    /// Note that on windows, this returns panics if the string is not valid
+    /// utf-8. This is not ideal, but is unavoidable at the moment (OsStr on
+    /// windows uses WTF-8 encoding, which will basically never come from
+    /// anything other than rust itself).
+    ///
+    /// See the "Conversions" section in the [`FfiStr`] documentation for more
+    /// info and other functions which may be more useful to you.
+    pub fn as_os_str(&self) -> &'a std::ffi::OsStr {
+        self.as_opt_os_str()
+            .expect("Unexpected null pointer or invalid string passed to rust")
+    }
+
+    /// Get an `Option<&OsStr>` out of the `FfiStr`. If this stores a null
+    /// pointer, then None will be returned. This is similar to `as_str()`,
+    /// however it doesn't mind non-utf8 "strings". Input is assumed to end at
+    /// the first NUL byte which is *not* included.
+    ///
+    /// Note that on windows, this returns None (and warns) if the string is not
+    /// valid utf-8. This is not ideal, but is unavoidable at the moment (OsStr
+    /// on windows uses WTF-8 encoding, which will basically never come from
+    /// anything other than rust itself).
+    ///
+    /// See the "Conversions" section in the [`FfiStr`] documentation for more
+    /// info and other functions which may be more useful to you.
+    pub fn as_opt_path(&self) -> Option<&'a std::path::Path> {
+        self.as_opt_os_str().map(std::path::Path::new)
+    }
+
+    /// Get an `Option<&OsStr>` out of the `FfiStr`. If this stores a null
+    /// pointer, then None will be returned. This is similar to `as_str()`,
+    /// however it doesn't mind non-utf8 "strings". Input is assumed to end at
+    /// the first NUL byte which is *not* included.
+    ///
+    /// Note that on windows, this returns None (and warns) if the string is not
+    /// valid utf-8. This is not ideal, but is unavoidable at the moment (OsStr
+    /// on windows uses WTF-8 encoding, which will basically never come from
+    /// anything other than rust itself).
+    ///
+    /// See the "Conversions" section in the [`FfiStr`] documentation for more
+    /// info and other functions which may be more useful to you.
+    pub fn as_path(&self) -> &'a std::path::Path {
+        std::path::Path::new(self.as_os_str())
+    }
 }
 
 impl<'a> std::fmt::Debug for FfiStr<'a> {
@@ -191,7 +310,101 @@ impl<'a> From<FfiStr<'a>> for &'a str {
     }
 }
 
-// TODO: `AsRef<str>`?
+impl<'a> From<FfiStr<'a>> for &'a std::path::Path {
+    fn from(f: FfiStr<'a>) -> Self {
+        f.as_path()
+    }
+}
+
+impl<'a> From<FfiStr<'a>> for Option<&'a std::path::Path> {
+    fn from(f: FfiStr<'a>) -> Self {
+        f.as_opt_path()
+    }
+}
+
+impl<'a> From<FfiStr<'a>> for &'a std::ffi::OsStr {
+    fn from(f: FfiStr<'a>) -> Self {
+        f.as_os_str()
+    }
+}
+
+impl<'a> From<FfiStr<'a>> for Option<&'a std::ffi::OsStr> {
+    fn from(f: FfiStr<'a>) -> Self {
+        f.as_opt_os_str()
+    }
+}
+
+impl<'a> From<FfiStr<'a>> for std::ffi::OsString {
+    fn from(f: FfiStr<'a>) -> Self {
+        f.as_os_str().to_owned()
+    }
+}
+
+impl<'a> From<FfiStr<'a>> for Option<std::ffi::OsString> {
+    fn from(f: FfiStr<'a>) -> Self {
+        f.as_opt_os_str().map(ToOwned::to_owned)
+    }
+}
+
+impl<'a> From<FfiStr<'a>> for std::path::PathBuf {
+    fn from(f: FfiStr<'a>) -> Self {
+        f.as_path().to_owned()
+    }
+}
+
+impl<'a> From<FfiStr<'a>> for Option<std::path::PathBuf> {
+    fn from(f: FfiStr<'a>) -> Self {
+        f.as_opt_path().map(ToOwned::to_owned)
+    }
+}
+
+impl<'a> From<FfiStr<'a>> for Option<&'a [u8]> {
+    fn from(f: FfiStr<'a>) -> Self {
+        f.as_opt_bytes()
+    }
+}
+
+impl<'a> From<FfiStr<'a>> for &'a [u8] {
+    fn from(f: FfiStr<'a>) -> Self {
+        f.as_bytes()
+    }
+}
+
+impl<'a> From<FfiStr<'a>> for Option<Vec<u8>> {
+    fn from(f: FfiStr<'a>) -> Self {
+        f.as_opt_bytes().map(ToOwned::to_owned)
+    }
+}
+
+impl<'a> From<FfiStr<'a>> for Vec<u8> {
+    fn from(f: FfiStr<'a>) -> Self {
+        f.as_bytes().to_owned()
+    }
+}
+
+impl<'a> AsRef<str> for FfiStr<'a> {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl<'a> AsRef<[u8]> for FfiStr<'a> {
+    fn as_ref(&self) -> &[u8] {
+        self.as_bytes()
+    }
+}
+
+impl<'a> AsRef<std::ffi::OsStr> for FfiStr<'a> {
+    fn as_ref(&self) -> &std::ffi::OsStr {
+        self.as_os_str()
+    }
+}
+
+impl<'a> AsRef<std::path::Path> for FfiStr<'a> {
+    fn as_ref(&self) -> &std::path::Path {
+        self.as_path()
+    }
+}
 
 // Comparisons...
 
@@ -232,5 +445,36 @@ impl<'a, 'b> PartialEq<FfiStr<'a>> for &'b str {
     #[inline]
     fn eq(&self, other: &FfiStr<'a>) -> bool {
         Some(*self) == other.as_opt_str()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_ffi_str_basic() {
+        let ffis = unsafe { FfiStr::from_raw(b"abcdef\0".as_ptr() as *const _) };
+        let ffis_null = unsafe { FfiStr::from_raw(std::ptr::null()) };
+        let ffis_bad_utf8 = unsafe { FfiStr::from_raw(b"abcde\xff1234\0".as_ptr() as *const _) };
+
+        assert_eq!(ffis.as_str(), "abcdef");
+        assert_eq!(ffis.as_bytes(), b"abcdef");
+
+        assert!(ffis.as_opt_str().is_some());
+        assert!(ffis.as_opt_bytes().is_some());
+
+        assert!(ffis.as_opt_str().is_some());
+        assert!(ffis.as_opt_bytes().is_some());
+
+        assert!(ffis_null.as_opt_str().is_none());
+        assert!(ffis_null.as_opt_bytes().is_none());
+
+        assert!(ffis_bad_utf8.as_opt_str().is_none());
+
+        assert_eq!(
+            ffis_bad_utf8.as_opt_bytes(),
+            Some(b"abcde\xff1234".as_ref())
+        );
+        assert_eq!(ffis_bad_utf8.into_string(), "abcde\u{FFFD}1234");
     }
 }
