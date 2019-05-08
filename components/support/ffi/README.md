@@ -2,7 +2,7 @@
 
 [![Docs](https://docs.rs/ffi-support/badge.svg)](https://docs.rs/ffi-support)
 
-This crate implements a support library to simplify implementing the patterns that the [mozilla/application-services](https://github.com/mozilla/application-services) repository uses for it's "Rust Component" FFI libraries, which are used to share Rust code
+This crate implements a support library to simplify implementing the patterns that the [mozilla/application-services](https://github.com/mozilla/application-services) repository uses for its "Rust Component" FFI libraries, which are used to share Rust code
 
 In particular, it can assist with the following areas:
 
@@ -11,7 +11,7 @@ In particular, it can assist with the following areas:
 3. Converting strings to/from rust str.
 4. Passing non-string data (in a few ways, including exposing an opaque pointeer, marshalling data to JSON strings with serde, as well as arbitrary custom handling) back and forth between Rust and whatever the caller on the other side of the FFI is.
 
-Additionally, it's documentation describes a number of the problems we've hit doing this to expose libraries to consumers on mobile platforms.
+Additionally, its documentation describes a number of the problems we've hit doing this to expose libraries to consumers on mobile platforms.
 
 ## Usage
 

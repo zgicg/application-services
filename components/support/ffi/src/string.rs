@@ -84,7 +84,7 @@ pub unsafe fn destroy_c_string(cstring: *mut c_char) {
 ///
 /// ## Panics
 ///
-/// Panics if it's argument is null, see [`opt_rust_str_from_c`] for a variant that returns None in
+/// Panics if its argument is null, see [`opt_rust_str_from_c`] for a variant that returns None in
 /// this case instead.
 ///
 /// Note: This means it's forbidden to call this outside of a `call_with_result` (or something else
@@ -123,7 +123,7 @@ pub unsafe fn opt_rust_str_from_c<'a>(c_string: *const c_char) -> Option<&'a str
 ///
 /// ## Panics
 ///
-/// Panics if it's argument is null. See also [`opt_rust_string_from_c`], which returns None
+/// Panics if its argument is null. See also [`opt_rust_string_from_c`], which returns None
 /// instead.
 ///
 /// Note: This means it's forbidden to call this outside of a `call_with_result` (or something else

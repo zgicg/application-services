@@ -532,7 +532,7 @@ impl<T> ops::Index<Handle> for HandleMap<T> {
 
 /// A Handle we allow to be returned over the FFI by implementing [`IntoFfi`].
 /// This type is intentionally not `#[repr(C)]`, and getting the data out of the
-/// FFI is done using `Handle::from_u64`, or it's implemetation of `From<u64>`.
+/// FFI is done using `Handle::from_u64`, or its implemetation of `From<u64>`.
 ///
 /// It consists of, at a minimum:
 ///
@@ -805,7 +805,7 @@ impl<T> ConcurrentHandleMap<T> {
     ///
     /// This will panic if a previous [`get()`](ConcurrentHandleMap::get) or
     /// [`get_mut()`](ConcurrentHandleMap::get_mut) call has panicked inside
-    /// it's callback. The only solution to this is to
+    /// its callback. The only solution to this is to
     /// [`delete`](ConcurrentHandleMap::delete) and reinsert said item.
     ///
     /// (It may also panic if the handle map detects internal state corruption,
@@ -836,7 +836,7 @@ impl<T> ConcurrentHandleMap<T> {
     ///
     /// This will panic if a previous [`get()`](ConcurrentHandleMap::get) or
     /// [`get_mut()`](ConcurrentHandleMap::get_mut) call has panicked inside
-    /// it's callback. The only solution to this is to
+    /// its callback. The only solution to this is to
     /// [`delete`](ConcurrentHandleMap::delete) and reinsert said
     /// item.
     ///

@@ -135,7 +135,7 @@ pub unsafe trait IntoFfi {
     /// This type must be:
     ///
     /// 1. Compatible with C, which is to say `#[repr(C)]`, a numeric primitive, another type that
-    ///    has guarantees made about it's layout, or a `#[repr(transparent)]` wrapper around one of
+    ///    has guarantees made about its layout, or a `#[repr(transparent)]` wrapper around one of
     ///    those.
     ///
     ///    One could even use `&T`, so long as `T: Sized`, although it's extremely dubious to return

@@ -34,8 +34,8 @@ macro_rules! implement_into_ffi_by_pointer {
     )*}
 }
 
-/// Implements [`IntoFfi`](crate::IntoFfi) for the provided types (more
-/// than one may be passed in) by converting to the type to a JSON string.
+/// Implements [`IntoFfi`](crate::IntoFfi) for the provided types (more than one
+/// may be passed in) by converting to the type to a JSON string.
 ///
 /// Additionally, most of the time we recomment using this crate's protobuf
 /// support, instead of JSON.
@@ -46,13 +46,13 @@ macro_rules! implement_into_ffi_by_pointer {
 ///
 /// Note: Each type passed in must implement or derive `serde::Serialize`.
 ///
-/// Note: for this to works, the crate it's called in must depend on `serde` and
-/// `serde_json`.
+/// Note: for this to works, the crate the macro is called in must depend on
+/// `serde` and `serde_json`.
 ///
 /// ## Panics
 ///
-/// The [`IntoFfi`](crate::IntoFfi) implementation this macro generates
-/// may panic in the following cases:
+/// The [`IntoFfi`](crate::IntoFfi) implementation this macro generates may
+/// panic in the following cases:
 ///
 /// - You've passed a type that contains a Map that has non-string keys (which
 ///   can't be represented in JSON).
@@ -92,7 +92,7 @@ macro_rules! implement_into_ffi_by_json {
 /// type) by converting to the type to a [`ByteBuffer`](crate::ByteBuffer). This
 /// `ByteBuffer` should later be passed by value.
 ///
-/// Note: for this to works, the crate it's called in must depend on `prost`.
+/// Note: for this to works, the crate the macro is called in must depend on `prost`.
 ///
 /// Note: Each type passed in must implement or derive `prost::Message`.
 #[macro_export]

@@ -9,7 +9,7 @@
 //! # FFI Support
 //!
 //! This crate implements a support library to simplify implementing the patterns that the
-//! `mozilla/application-services` repository uses for it's "Rust Component" FFI libraries.
+//! `mozilla/application-services` repository uses for its "Rust Component" FFI libraries.
 //!
 //! It is *strongly encouraged* that anybody writing FFI code in this repository read this
 //! documentation before doing so, as it is a subtle, difficult, and error prone process.
@@ -343,7 +343,7 @@ fn init_panic_handling_once() {}
 ///
 /// ByteBuffer does not implement Drop. This is intentional. Memory passed into it will
 /// be leaked if it is not explicitly destroyed by calling [`ByteBuffer::destroy`]. This
-/// is because in the future, we may allow it's use for passing data into Rust code.
+/// is because in the future, we may allow its use for passing data into Rust code.
 /// ByteBuffer assuming ownership of the data would make this a problem.
 ///
 /// Note that alling `destroy` manually is not typically needed or recommended,
