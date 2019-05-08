@@ -2,17 +2,19 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/// Implements [`IntoFfi`] for the provided types (more than one may be passed in) by allocating
-/// `$T` on the heap as an opaque pointer.
+/// Implements [`IntoFfi`](crate::IntoFfi) for the provided types (more than one
+/// may be passed in) by allocating `$T` on the heap as an opaque pointer.
 ///
-/// This is typically going to be used from the "Rust component", and not the "FFI component" (see
-/// the top level crate documentation for more information), however you will still need to
-/// implement a destructor in the FFI component using [`define_box_destructor!`].
+/// This is typically going to be used from the "Rust component", and not the
+/// "FFI component" (see the top level crate documentation for more
+/// information), however you will still need to implement a destructor in the
+/// FFI component using [`define_box_destructor!`].
 ///
-/// In general, is only safe to do for `send` types (even this is dodgy, but it's often necessary
-/// to keep the locking on the other side of the FFI, so Sync is too harsh), so we enforce this in
-/// this macro. (You're still free to implement this manually, if this restriction is too harsh
-/// for your use case and you're certain you know what you're doing).
+/// In general, is only safe to do for `send` types (even this is dodgy, but
+/// it's often necessary to keep the locking on the other side of the FFI, so
+/// Sync is too harsh), so we enforce this in this macro. (You're still free to
+/// implement this manually, if this restriction is too harsh for your use case
+/// and you're certain you know what you're doing).
 #[macro_export]
 macro_rules! implement_into_ffi_by_pointer {
     ($($T:ty),* $(,)*) => {$(
@@ -32,8 +34,8 @@ macro_rules! implement_into_ffi_by_pointer {
     )*}
 }
 
-/// Implements [`IntoFfi`] for the provided types (more than one may be passed
-/// in) by converting to the type to a JSON string.
+/// Implements [`IntoFfi`](crate::IntoFfi) for the provided types (more
+/// than one may be passed in) by converting to the type to a JSON string.
 ///
 /// Additionally, most of the time we recomment using this crate's protobuf
 /// support, instead of JSON.
@@ -49,8 +51,8 @@ macro_rules! implement_into_ffi_by_pointer {
 ///
 /// ## Panics
 ///
-/// The [`IntoFfi`] implementation this macro generates may panic in the
-/// following cases:
+/// The [`IntoFfi`](crate::IntoFfi) implementation this macro generates
+/// may panic in the following cases:
 ///
 /// - You've passed a type that contains a Map that has non-string keys (which
 ///   can't be represented in JSON).
@@ -85,9 +87,10 @@ macro_rules! implement_into_ffi_by_json {
     )*}
 }
 
-/// Implements [`IntoFfi`] for the provided types (more than one may be passed in) implementing
-/// `prost::Message` (protobuf auto-generated type) by converting to the type to a [`ByteBuffer`].
-/// This [`ByteBuffer`] should later be passed by value.
+/// Implements [`IntoFfi`](crate::IntoFfi) for the provided types (more than one
+/// may be passed in) implementing `prost::Message` (protobuf auto-generated
+/// type) by converting to the type to a [`ByteBuffer`](crate::ByteBuffer). This
+/// `ByteBuffer` should later be passed by value.
 ///
 /// Note: for this to works, the crate it's called in must depend on `prost`.
 ///
@@ -115,14 +118,15 @@ macro_rules! implement_into_ffi_by_protobuf {
     )*}
 }
 
-/// Implement IntoFfi for a type by converting through another type.
+/// Implement [`IntoFfi`](crate::IntoFfi) for a type by converting through
+/// another type.
 ///
 /// The argument `$MidTy` argument must implement `From<$SrcTy>` and
-/// [`InfoFfi`].
+/// [`InfoFfi`](crate::IntoFfi).
 ///
 /// This is provided (even though it's trivial) because it is always safe (well,
-/// so long as `$MidTy`'s [`IntoFfi`] implementation is correct), but would
-/// otherwise require use of `unsafe` to implement.
+/// so long as `$MidTy`'s [`IntoFfi`](crate::IntoFfi) implementation is
+/// correct), but would otherwise require use of `unsafe` to implement.
 #[macro_export]
 macro_rules! implement_into_ffi_by_delegation {
     ($SrcTy:ty, $MidTy:ty) => {
@@ -234,7 +238,7 @@ macro_rules! define_box_destructor {
     };
 }
 
-/// Define a (public) destructor for the ByteBuffer type.
+/// Define a (public) destructor for the [`ByteBuffer`](crate::ByteBuffer) type.
 ///
 /// ## Caveats
 ///
@@ -242,7 +246,6 @@ macro_rules! define_box_destructor {
 /// that you are careful to only ever free `ByteBuffer` instances allocated by a Rust library using
 /// the same rust library. Passing them to a different Rust library's string destructor will cause
 /// you to corrupt multiple heaps.
-/// One common ByteBuffer destructor is defined per Rust library.
 ///
 /// Also, to avoid name collisions, it is strongly recommended that you provide an name for this
 /// function unique to your library. (This is true for all functions you expose).

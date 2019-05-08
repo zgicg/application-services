@@ -754,12 +754,12 @@ impl<T> ConcurrentHandleMap<T> {
         v.map(drop)
     }
 
-    /// Convenient wrapper for `delete` which takes a `u64` that it will
-    /// convert to a handle.
+    /// Convenient wrapper for [`delete`](ConcurrentHandleMap::delete) which
+    /// takes a `u64` that it will convert to a handle.
     ///
-    /// The main benefit (besides convenience) of this over the version
-    /// that takes a [`Handle`] is that it allows handling handle-related errors
-    /// in one place.
+    /// The main benefit (besides convenience) of this over the version that
+    /// takes a [`Handle`] is that it allows handling handle-related errors in
+    /// one place.
     pub fn delete_u64(&self, h: u64) -> Result<(), HandleError> {
         self.delete(Handle::from_u64(h)?)
     }
@@ -777,12 +777,12 @@ impl<T> ConcurrentHandleMap<T> {
         Ok(mutex.into_inner().ok())
     }
 
-    /// Convenient wrapper for `remove` which takes a `u64` that it will
-    /// convert to a handle.
+    /// Convenient wrapper for [`remove`](ConcurrentHandleMap::remove) which
+    /// takes a `u64` that it will convert to a handle.
     ///
-    /// The main benefit (besides convenience) of this over the version
-    /// that takes a [`Handle`] is that it allows handling handle-related errors
-    /// in one place.
+    /// The main benefit (besides convenience) of this over the version that
+    /// takes a [`Handle`] is that it allows handling handle-related errors in
+    /// one place.
     pub fn remove_u64(&self, h: u64) -> Result<Option<T>, HandleError> {
         self.remove(Handle::from_u64(h)?)
     }
@@ -803,8 +803,10 @@ impl<T> ConcurrentHandleMap<T> {
     ///
     /// # Panics
     ///
-    /// This will panic if a previous `get()` or `get_mut()` call has panicked
-    /// inside it's callback. The solution to this
+    /// This will panic if a previous [`get()`](ConcurrentHandleMap::get) or
+    /// [`get_mut()`](ConcurrentHandleMap::get_mut) call has panicked inside
+    /// it's callback. The only solution to this is to
+    /// [`delete`](ConcurrentHandleMap::delete) and reinsert said item.
     ///
     /// (It may also panic if the handle map detects internal state corruption,
     /// however this should not happen except for bugs in the handle map code).
@@ -832,9 +834,11 @@ impl<T> ConcurrentHandleMap<T> {
     ///
     /// # Panics
     ///
-    /// This will panic if a previous `get()` or `get_mut()` call has panicked
-    /// inside it's callback. The only solution to this is to remove and reinsert
-    /// said item.
+    /// This will panic if a previous [`get()`](ConcurrentHandleMap::get) or
+    /// [`get_mut()`](ConcurrentHandleMap::get_mut) call has panicked inside
+    /// it's callback. The only solution to this is to
+    /// [`delete`](ConcurrentHandleMap::delete) and reinsert said
+    /// item.
     ///
     /// (It may also panic if the handle map detects internal state corruption,
     /// however this should not happen except for bugs in the handle map code).
@@ -850,12 +854,12 @@ impl<T> ConcurrentHandleMap<T> {
         callback(&mut *hm)
     }
 
-    /// Convenient wrapper for `get` which takes a `u64` that it will convert to
-    /// a handle.
+    /// Convenient wrapper for [`get`](ConcurrentHandleMap::get) which takes a
+    /// `u64` that it will convert to a handle.
     ///
-    /// The other benefit (besides convenience) of this over the version
-    /// that takes a [`Handle`] is that it allows handling handle-related errors
-    /// in one place.
+    /// The other benefit (besides convenience) of this over the version that
+    /// takes a [`Handle`] is that it allows handling handle-related errors in
+    /// one place.
     ///
     /// # Locking
     ///
@@ -875,12 +879,12 @@ impl<T> ConcurrentHandleMap<T> {
         self.get(Handle::from_u64(u)?, callback)
     }
 
-    /// Convenient wrapper for `get_mut` which takes a `u64` that it will
-    /// convert to a handle.
+    /// Convenient wrapper for [`get_mut`](ConcurrentHandleMap::get_mut) which
+    /// takes a `u64` that it will convert to a handle.
     ///
-    /// The main benefit (besides convenience) of this over the version
-    /// that takes a [`Handle`] is that it allows handling handle-related errors
-    /// in one place.
+    /// The main benefit (besides convenience) of this over the version that
+    /// takes a [`Handle`] is that it allows handling handle-related errors in
+    /// one place.
     ///
     /// # Locking
     ///
@@ -900,7 +904,8 @@ impl<T> ConcurrentHandleMap<T> {
         self.get_mut(Handle::from_u64(u)?, callback)
     }
 
-    /// Helper that performs both a [`call_with_result`] and [`get`](ConcurrentHandleMap::get_mut).
+    /// Helper that performs both a [`call_with_result`](crate::call_with_result)
+    /// and [`get_mut`](ConcurrentHandleMap::get_mut).
     pub fn call_with_result_mut<R, E, F>(
         &self,
         out_error: &mut ExternError,
@@ -924,7 +929,8 @@ impl<T> ConcurrentHandleMap<T> {
         })
     }
 
-    /// Helper that performs both a [`call_with_result`] and [`get`](ConcurrentHandleMap::get).
+    /// Helper that performs both a [`call_with_result`](crate::call_with_result)
+    /// and [`get`](ConcurrentHandleMap::get).
     pub fn call_with_result<R, E, F>(
         &self,
         out_error: &mut ExternError,
@@ -939,7 +945,8 @@ impl<T> ConcurrentHandleMap<T> {
         self.call_with_result_mut(out_error, h, |r| callback(r))
     }
 
-    /// Helper that performs both a [`call_with_output`] and [`get`](ConcurrentHandleMap::get).
+    /// Helper that performs both a [`call_with_output`](crate::call_with_output)
+    /// and [`get`](ConcurrentHandleMap::get).
     pub fn call_with_output<R, F>(
         &self,
         out_error: &mut ExternError,
@@ -955,7 +962,8 @@ impl<T> ConcurrentHandleMap<T> {
         })
     }
 
-    /// Helper that performs both a [`call_with_output`] and [`get_mut`](ConcurrentHandleMap::get).
+    /// Helper that performs both a [`call_with_output`](crate::call_with_output)
+    /// and [`get_mut`](ConcurrentHandleMap::get).
     pub fn call_with_output_mut<R, F>(
         &self,
         out_error: &mut ExternError,
@@ -972,8 +980,8 @@ impl<T> ConcurrentHandleMap<T> {
     }
 
     /// Use `constructor` to create and insert a `T`, while inside a
-    /// [`call_with_result`] call (to handle panics and map errors onto an
-    /// `ExternError`).
+    /// [`call_with_result`](crate::call_with_result) call (to handle
+    /// panics and map errors onto an [`ExternError`](crate::ExternError)).
     pub fn insert_with_result<E, F>(&self, out_error: &mut ExternError, constructor: F) -> u64
     where
         F: std::panic::UnwindSafe + FnOnce() -> Result<T, E>,
@@ -994,7 +1002,7 @@ impl<T> ConcurrentHandleMap<T> {
     /// case where the constructor cannot produce an error.
     ///
     /// The name is somewhat dubious, since there's no `output`, but it's intended to make it
-    /// clear that it contains a [`call_with_output`] internally.
+    /// clear that it contains a [`call_with_output`](crate::call_with_output) internally.
     pub fn insert_with_output<F>(&self, out_error: &mut ExternError, constructor: F) -> u64
     where
         F: std::panic::UnwindSafe + FnOnce() -> T,
