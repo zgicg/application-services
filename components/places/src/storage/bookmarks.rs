@@ -889,6 +889,10 @@ impl<'de> Deserialize<'de> for BookmarkTreeNode {
     }
 }
 
+pub fn bookmarks_get_url_for_keyword(db: &PlacesDb, keyword: &str) -> Result<Option<Url>> {
+    Ok(None)
+}
+
 #[cfg(test)]
 mod test_serialize {
     use super::*;

@@ -320,6 +320,18 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
         }
     }
 
+    override fun getBookmarkURLForKeyword(keyword: String): String? {
+        rustCall { err ->
+            LibPlacesFFI.INSTANCE.bookmarks_get_url_for_keyword(this.handle.get(), keyword, error)
+        }?.let {
+            try {
+                it.getString(0, "utf8")
+            } finally {
+                LibPlacesFFI.INSTANCE.places_destroy_string(it)
+            }
+        }
+    }
+
     override fun searchBookmarks(query: String, limit: Int): List<BookmarkItem> {
         val rustBuf = rustCall { err ->
             LibPlacesFFI.INSTANCE.bookmarks_search(this.handle.get(), query, limit, err)
