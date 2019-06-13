@@ -175,14 +175,6 @@ if (System.getenv("CI")) {
     ext.extraCargoBuildArguments = ["--locked"]
 }
 
-if (localProperties != null) {
-    String localNonMegazordProfile = localProperties.getProperty(
-        "application-services.nonmegazord-profile");
-    if (localNonMegazordProfile != null) {
-        ext.nonMegazordProfile = localNonMegazordProfile;
-    }
-}
-
 // The Cargo targets to invoke.  The mapping from short name to target
 // triple is defined by the `rust-android-gradle` plugin.
 // They can be overwritten in `local.properties` by the `rust.targets`
