@@ -59,3 +59,27 @@ projects:
     artifactId: fenix-megazord
     publishedArtifacts: [fenix-megazord, fenix-megazord-forUnitTests]
     description: Megazord of [fxaclient, places, push, logging].
+
+  # These are identical to the other megazords and are unpublished. They must
+  # exist to work around the fact that we can't us non-default configurations in
+  # a composite build. Unfortunately, they also have to have an identical name
+  # to the real thing that gets published, which seems likely to cause confusion
+  # forever...
+  full-megazord-forUnitTests:
+    uploadSymbols: false
+    path: megazords/full/android-forUnitTests
+    artifactId: full-megazord-forUnitTests
+    publishedArtifacts: []
+    description: Unpublished duplicate of the full-megazord.
+  # fenix-megazord-forUnitTests:
+  #   uploadSymbols: false
+  #   path: megazords/fenix/android-forUnitTests
+  #   artifactId: fenix-megazord-forUnitTests
+  #   publishedArtifacts: []
+  #   description: Unpublished duplicate of the fenix-megazord.
+  # lockbox-megazord-forUnitTests:
+  #   uploadSymbols: false
+  #   path: megazords/lockbox/android-forUnitTests
+  #   artifactId: lockbox-megazord-forUnitTests
+  #   publishedArtifacts: []
+  #   description: Unpublished duplicate of the fenix-megazord.

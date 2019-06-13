@@ -24,6 +24,11 @@ ext.configurePublish = { jnaForTestConfiguration = null ->
     def theDescription = project.ext.description
     def artifacts = project.ext.configProps.publishedArtifacts;
 
+    if (artifacts.size() == 0) {
+        // Not published.
+        return
+    }
+
     // This is a little cludgey, but it seems unlikely to cause a problem, and
     // we are already doing it inside taskcluster.
     def isMegazord = theArtifactId.endsWith("-megazord")

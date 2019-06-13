@@ -21,6 +21,8 @@ def module_definitions():
     build_config = read_build_config()
     modules_defs = []
     for (name, project) in build_config['projects'].items():
+        if len(project["publishedArtifacts"]) == 0:
+            continue
         module_artifacts = [{
             'name': published_artifact,
             # We hardcode the base directory because the decision task and the build task don't have
