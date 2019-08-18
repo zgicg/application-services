@@ -1,0 +1,9 @@
+[package]
+name = "codegen"
+version = "0.1.0"
+authors = ["Application Services <application-services@mozilla.com>"]
+edition = "2018"
+
+[dependencies]
+weedle = "0.10"
+handlebars = "2.0.1"

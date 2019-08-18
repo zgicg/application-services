@@ -26,6 +26,7 @@ members = [
     "megazords/lockbox",
     "megazords/ios/rust",
     "testing/sync-test",
+    "tools/codegen",
 ]
 
 [profile.release]
