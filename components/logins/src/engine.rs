@@ -1,22 +1,22 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-use crate::db::{LoginDb, LoginStore};
+use crate::db::{LoginDb};//, LoginStore};
 use crate::error::*;
 use crate::login::Login;
 use std::cell::Cell;
 use std::path::Path;
-use sync15::{
-    sync_multiple, telemetry, KeyBundle, MemoryCachedState, StoreSyncAssociation,
-    Sync15StorageClientInit,
-};
+// use sync15::{
+//     sync_multiple, telemetry, KeyBundle, MemoryCachedState, StoreSyncAssociation,
+//     Sync15StorageClientInit,
+// };
 
 // This isn't really an engine in the firefox sync15 desktop sense -- it's
 // really a bundle of state that contains the sync storage client, the sync
 // state, and the login DB.
 pub struct PasswordEngine {
     pub db: LoginDb,
-    pub mem_cached_state: Cell<MemoryCachedState>,
+    // pub mem_cached_state: Cell<MemoryCachedState>,
 }
 
 impl PasswordEngine {
@@ -24,7 +24,7 @@ impl PasswordEngine {
         let db = LoginDb::open(path, encryption_key)?;
         Ok(Self {
             db,
-            mem_cached_state: Cell::default(),
+            // mem_cached_state: Cell::default(),
         })
     }
 
@@ -32,7 +32,7 @@ impl PasswordEngine {
         let db = LoginDb::open_in_memory(encryption_key)?;
         Ok(Self {
             db,
-            mem_cached_state: Cell::default(),
+            // mem_cached_state: Cell::default(),
         })
     }
 
@@ -63,10 +63,10 @@ impl PasswordEngine {
         Ok(())
     }
 
-    pub fn reset(&self) -> Result<()> {
-        self.db.reset(&StoreSyncAssociation::Disconnected)?;
-        Ok(())
-    }
+    // pub fn reset(&self) -> Result<()> {
+    //     self.db.reset(&StoreSyncAssociation::Disconnected)?;
+    //     Ok(())
+    // }
 
     pub fn update(&self, login: Login) -> Result<()> {
         self.db.update(login)
@@ -91,43 +91,43 @@ impl PasswordEngine {
         self.db.new_interrupt_handle()
     }
 
-    /// A convenience wrapper around sync_multiple.
-    pub fn sync(
-        &self,
-        storage_init: &Sync15StorageClientInit,
-        root_sync_key: &KeyBundle,
-    ) -> Result<telemetry::SyncTelemetryPing> {
-        // migrate our V1 state - this needn't live for long.
-        self.db.migrate_global_state()?;
+    // /// A convenience wrapper around sync_multiple.
+    // pub fn sync(
+    //     &self,
+    //     storage_init: &Sync15StorageClientInit,
+    //     root_sync_key: &KeyBundle,
+    // ) -> Result<telemetry::SyncTelemetryPing> {
+    //     // migrate our V1 state - this needn't live for long.
+    //     self.db.migrate_global_state()?;
 
-        let mut disk_cached_state = self.db.get_global_state()?;
-        let mut mem_cached_state = self.mem_cached_state.take();
-        let store = LoginStore::new(&self.db);
+    //     let mut disk_cached_state = self.db.get_global_state()?;
+    //     let mut mem_cached_state = self.mem_cached_state.take();
+    //     let store = LoginStore::new(&self.db);
 
-        let mut result = sync_multiple(
-            &[&store],
-            &mut disk_cached_state,
-            &mut mem_cached_state,
-            storage_init,
-            root_sync_key,
-            &store.scope,
-        );
-        // We always update the state - sync_multiple does the right thing
-        // if it needs to be dropped (ie, they will be None or contain Nones etc)
-        self.db.set_global_state(&disk_cached_state)?;
+    //     let mut result = sync_multiple(
+    //         &[&store],
+    //         &mut disk_cached_state,
+    //         &mut mem_cached_state,
+    //         storage_init,
+    //         root_sync_key,
+    //         &store.scope,
+    //     );
+    //     // We always update the state - sync_multiple does the right thing
+    //     // if it needs to be dropped (ie, they will be None or contain Nones etc)
+    //     self.db.set_global_state(&disk_cached_state)?;
 
-        // for b/w compat reasons, we do some dances with the result.
-        // XXX - note that this means telemetry isn't going to be reported back
-        // to the app - we need to check with lockwise about whether they really
-        // need these failures to be reported or whether we can loosen this.
-        if let Err(e) = result.result {
-            return Err(e.into());
-        }
-        match result.engine_results.remove("passwords") {
-            None | Some(Ok(())) => Ok(result.telemetry),
-            Some(Err(e)) => Err(e.into()),
-        }
-    }
+    //     // for b/w compat reasons, we do some dances with the result.
+    //     // XXX - note that this means telemetry isn't going to be reported back
+    //     // to the app - we need to check with lockwise about whether they really
+    //     // need these failures to be reported or whether we can loosen this.
+    //     if let Err(e) = result.result {
+    //         return Err(e.into());
+    //     }
+    //     match result.engine_results.remove("passwords") {
+    //         None | Some(Ok(())) => Ok(result.telemetry),
+    //         Some(Err(e)) => Err(e.into()),
+    //     }
+    // }
 }
 
 #[cfg(test)]

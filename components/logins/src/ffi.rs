@@ -6,7 +6,7 @@
 
 use crate::{Error, ErrorKind, Login};
 use ffi_support::{implement_into_ffi_by_json, ErrorCode, ExternError};
-use sync15::ErrorKind as Sync15ErrorKind;
+// use sync15::ErrorKind as Sync15ErrorKind;
 
 pub mod error_codes {
     /// An unexpected error occurred which likely cannot be meaningfully handled
@@ -41,16 +41,16 @@ pub mod error_codes {
 
 fn get_code(err: &Error) -> ErrorCode {
     match err.kind() {
-        ErrorKind::SyncAdapterError(e) => {
-            log::error!("Sync error {:?}", e);
-            match e.kind() {
-                Sync15ErrorKind::TokenserverHttpError(401) | Sync15ErrorKind::BadKeyLength(..) => {
-                    ErrorCode::new(error_codes::AUTH_INVALID)
-                }
-                Sync15ErrorKind::RequestError(_) => ErrorCode::new(error_codes::NETWORK),
-                _ => ErrorCode::new(error_codes::UNEXPECTED),
-            }
-        }
+        // ErrorKind::SyncAdapterError(e) => {
+        //     log::error!("Sync error {:?}", e);
+        //     match e.kind() {
+        //         Sync15ErrorKind::TokenserverHttpError(401) | Sync15ErrorKind::BadKeyLength(..) => {
+        //             ErrorCode::new(error_codes::AUTH_INVALID)
+        //         }
+        //         Sync15ErrorKind::RequestError(_) => ErrorCode::new(error_codes::NETWORK),
+        //         _ => ErrorCode::new(error_codes::UNEXPECTED),
+        //     }
+        // }
         ErrorKind::DuplicateGuid(id) => {
             log::error!("Guid already exists: {}", id);
             ErrorCode::new(error_codes::DUPLICATE_GUID)

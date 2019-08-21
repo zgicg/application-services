@@ -21,10 +21,11 @@ use std::path::Path;
 use std::result;
 use std::sync::{atomic::AtomicUsize, Arc};
 use std::time::SystemTime;
-use sync15::{
-    extract_v1_state, telemetry, CollSyncIds, CollectionRequest, IncomingChangeset,
-    OutgoingChangeset, Payload, ServerTimestamp, Store, StoreSyncAssociation,
-};
+use crate::util::ServerTimestamp;
+// use sync15::{
+//     extract_v1_state, telemetry, CollSyncIds, CollectionRequest, IncomingChangeset,
+//     OutgoingChangeset, Payload, ServerTimestamp, Store, StoreSyncAssociation,
+// };
 use sync_guid::Guid;
 
 pub struct LoginDb {
@@ -168,102 +169,102 @@ impl LoginDb {
         Ok(())
     }
 
-    // Fetch all the data for the provided IDs.
-    // TODO: Might be better taking a fn instead of returning all of it... But that func will likely
-    // want to insert stuff while we're doing this so ugh.
-    fn fetch_login_data(
-        &self,
-        records: &[(sync15::Payload, ServerTimestamp)],
-        telem: &mut telemetry::EngineIncoming,
-        scope: &SqlInterruptScope,
-    ) -> Result<Vec<SyncLoginData>> {
-        let mut sync_data = Vec::with_capacity(records.len());
-        {
-            let mut seen_ids: HashSet<Guid> = HashSet::with_capacity(records.len());
-            for incoming in records.iter() {
-                if seen_ids.contains(&incoming.0.id) {
-                    throw!(ErrorKind::DuplicateGuid(incoming.0.id.to_string()))
-                }
-                seen_ids.insert(incoming.0.id.clone());
-                match SyncLoginData::from_payload(incoming.0.clone(), incoming.1) {
-                    Ok(v) => sync_data.push(v),
-                    Err(e) => {
-                        log::error!("Failed to deserialize record {:?}: {}", incoming.0.id, e);
-                        // Ideally we'd track new_failed, but it's unclear how
-                        // much value it has.
-                        telem.failed(1);
-                    }
-                }
-            }
-        }
-        scope.err_if_interrupted()?;
+    // // Fetch all the data for the provided IDs.
+    // // TODO: Might be better taking a fn instead of returning all of it... But that func will likely
+    // // want to insert stuff while we're doing this so ugh.
+    // fn fetch_login_data(
+    //     &self,
+    //     records: &[(sync15::Payload, ServerTimestamp)],
+    //     telem: &mut telemetry::EngineIncoming,
+    //     scope: &SqlInterruptScope,
+    // ) -> Result<Vec<SyncLoginData>> {
+    //     let mut sync_data = Vec::with_capacity(records.len());
+    //     {
+    //         let mut seen_ids: HashSet<Guid> = HashSet::with_capacity(records.len());
+    //         for incoming in records.iter() {
+    //             if seen_ids.contains(&incoming.0.id) {
+    //                 throw!(ErrorKind::DuplicateGuid(incoming.0.id.to_string()))
+    //             }
+    //             seen_ids.insert(incoming.0.id.clone());
+    //             match SyncLoginData::from_payload(incoming.0.clone(), incoming.1) {
+    //                 Ok(v) => sync_data.push(v),
+    //                 Err(e) => {
+    //                     log::error!("Failed to deserialize record {:?}: {}", incoming.0.id, e);
+    //                     // Ideally we'd track new_failed, but it's unclear how
+    //                     // much value it has.
+    //                     telem.failed(1);
+    //                 }
+    //             }
+    //         }
+    //     }
+    //     scope.err_if_interrupted()?;
 
-        sql_support::each_chunk_mapped(
-            &records,
-            |r| r.0.id.as_str(),
-            |chunk, offset| -> Result<()> {
-                // pairs the bound parameter for the guid with an integer index.
-                let values_with_idx = sql_support::repeat_display(chunk.len(), ",", |i, f| {
-                    write!(f, "({},?)", i + offset)
-                });
-                let query = format!(
-                    "WITH to_fetch(guid_idx, fetch_guid) AS (VALUES {vals})
-                     SELECT
-                         {common_cols},
-                         is_overridden,
-                         server_modified,
-                         NULL as local_modified,
-                         NULL as is_deleted,
-                         NULL as sync_status,
-                         1 as is_mirror,
-                         to_fetch.guid_idx as guid_idx
-                     FROM loginsM
-                     JOIN to_fetch
-                         ON loginsM.guid = to_fetch.fetch_guid
+    //     sql_support::each_chunk_mapped(
+    //         &records,
+    //         |r| r.0.id.as_str(),
+    //         |chunk, offset| -> Result<()> {
+    //             // pairs the bound parameter for the guid with an integer index.
+    //             let values_with_idx = sql_support::repeat_display(chunk.len(), ",", |i, f| {
+    //                 write!(f, "({},?)", i + offset)
+    //             });
+    //             let query = format!(
+    //                 "WITH to_fetch(guid_idx, fetch_guid) AS (VALUES {vals})
+    //                  SELECT
+    //                      {common_cols},
+    //                      is_overridden,
+    //                      server_modified,
+    //                      NULL as local_modified,
+    //                      NULL as is_deleted,
+    //                      NULL as sync_status,
+    //                      1 as is_mirror,
+    //                      to_fetch.guid_idx as guid_idx
+    //                  FROM loginsM
+    //                  JOIN to_fetch
+    //                      ON loginsM.guid = to_fetch.fetch_guid
 
-                     UNION ALL
+    //                  UNION ALL
 
-                     SELECT
-                         {common_cols},
-                         NULL as is_overridden,
-                         NULL as server_modified,
-                         local_modified,
-                         is_deleted,
-                         sync_status,
-                         0 as is_mirror,
-                         to_fetch.guid_idx as guid_idx
-                     FROM loginsL
-                     JOIN to_fetch
-                         ON loginsL.guid = to_fetch.fetch_guid",
-                    // give each VALUES item 2 entries, an index and the parameter.
-                    vals = values_with_idx,
-                    common_cols = schema::COMMON_COLS,
-                );
+    //                  SELECT
+    //                      {common_cols},
+    //                      NULL as is_overridden,
+    //                      NULL as server_modified,
+    //                      local_modified,
+    //                      is_deleted,
+    //                      sync_status,
+    //                      0 as is_mirror,
+    //                      to_fetch.guid_idx as guid_idx
+    //                  FROM loginsL
+    //                  JOIN to_fetch
+    //                      ON loginsL.guid = to_fetch.fetch_guid",
+    //                 // give each VALUES item 2 entries, an index and the parameter.
+    //                 vals = values_with_idx,
+    //                 common_cols = schema::COMMON_COLS,
+    //             );
 
-                let mut stmt = self.db.prepare(&query)?;
+    //             let mut stmt = self.db.prepare(&query)?;
 
-                let rows = stmt.query_and_then(chunk, |row| {
-                    let guid_idx_i = row.get::<_, i64>("guid_idx")?;
-                    // Hitting this means our math is wrong...
-                    assert!(guid_idx_i >= 0);
+    //             let rows = stmt.query_and_then(chunk, |row| {
+    //                 let guid_idx_i = row.get::<_, i64>("guid_idx")?;
+    //                 // Hitting this means our math is wrong...
+    //                 assert!(guid_idx_i >= 0);
 
-                    let guid_idx = guid_idx_i as usize;
-                    let is_mirror: bool = row.get("is_mirror")?;
-                    if is_mirror {
-                        sync_data[guid_idx].set_mirror(MirrorLogin::from_row(row)?)?;
-                    } else {
-                        sync_data[guid_idx].set_local(LocalLogin::from_row(row)?)?;
-                    }
-                    scope.err_if_interrupted()?;
-                    Ok(())
-                })?;
-                // `rows` is an Iterator<Item = Result<()>>, so we need to collect to handle the errors.
-                rows.collect::<Result<_>>()?;
-                Ok(())
-            },
-        )?;
-        Ok(sync_data)
-    }
+    //                 let guid_idx = guid_idx_i as usize;
+    //                 let is_mirror: bool = row.get("is_mirror")?;
+    //                 if is_mirror {
+    //                     sync_data[guid_idx].set_mirror(MirrorLogin::from_row(row)?)?;
+    //                 } else {
+    //                     sync_data[guid_idx].set_local(LocalLogin::from_row(row)?)?;
+    //                 }
+    //                 scope.err_if_interrupted()?;
+    //                 Ok(())
+    //             })?;
+    //             // `rows` is an Iterator<Item = Result<()>>, so we need to collect to handle the errors.
+    //             rows.collect::<Result<_>>()?;
+    //             Ok(())
+    //         },
+    //     )?;
+    //     Ok(sync_data)
+    // }
 
     // It would be nice if this were a batch-ish api (e.g. takes a slice of records and finds dupes
     // for each one if they exist)... I can't think of how to write that query, though.
@@ -571,29 +572,29 @@ impl LoginDb {
             .execute_named_cached(&*CLONE_SINGLE_MIRROR_SQL, &[(":guid", &guid as &dyn ToSql)])?)
     }
 
-    pub fn reset(&self, assoc: &StoreSyncAssociation) -> Result<()> {
-        log::info!("Executing reset on password store!");
-        let tx = self.db.unchecked_transaction()?;
-        self.execute_all(&[
-            &*CLONE_ENTIRE_MIRROR_SQL,
-            "DELETE FROM loginsM",
-            &format!("UPDATE loginsL SET sync_status = {}", SyncStatus::New as u8),
-        ])?;
-        self.set_last_sync(ServerTimestamp(0))?;
-        match assoc {
-            StoreSyncAssociation::Disconnected => {
-                self.delete_meta(schema::GLOBAL_SYNCID_META_KEY)?;
-                self.delete_meta(schema::COLLECTION_SYNCID_META_KEY)?;
-            }
-            StoreSyncAssociation::Connected(ids) => {
-                self.put_meta(schema::GLOBAL_SYNCID_META_KEY, &ids.global)?;
-                self.put_meta(schema::COLLECTION_SYNCID_META_KEY, &ids.coll)?;
-            }
-        };
-        self.delete_meta(schema::GLOBAL_STATE_META_KEY)?;
-        tx.commit()?;
-        Ok(())
-    }
+    // pub fn reset(&self, assoc: &StoreSyncAssociation) -> Result<()> {
+    //     log::info!("Executing reset on password store!");
+    //     let tx = self.db.unchecked_transaction()?;
+    //     self.execute_all(&[
+    //         &*CLONE_ENTIRE_MIRROR_SQL,
+    //         "DELETE FROM loginsM",
+    //         &format!("UPDATE loginsL SET sync_status = {}", SyncStatus::New as u8),
+    //     ])?;
+    //     self.set_last_sync(ServerTimestamp(0))?;
+    //     match assoc {
+    //         StoreSyncAssociation::Disconnected => {
+    //             self.delete_meta(schema::GLOBAL_SYNCID_META_KEY)?;
+    //             self.delete_meta(schema::COLLECTION_SYNCID_META_KEY)?;
+    //         }
+    //         StoreSyncAssociation::Connected(ids) => {
+    //             self.put_meta(schema::GLOBAL_SYNCID_META_KEY, &ids.global)?;
+    //             self.put_meta(schema::COLLECTION_SYNCID_META_KEY, &ids.coll)?;
+    //         }
+    //     };
+    //     self.delete_meta(schema::GLOBAL_STATE_META_KEY)?;
+    //     tx.commit()?;
+    //     Ok(())
+    // }
 
     pub fn wipe(&self, scope: &SqlInterruptScope) -> Result<()> {
         let tx = self.unchecked_transaction()?;
@@ -652,60 +653,60 @@ impl LoginDb {
         Ok(())
     }
 
-    fn reconcile(
-        &self,
-        records: Vec<SyncLoginData>,
-        server_now: ServerTimestamp,
-        telem: &mut telemetry::EngineIncoming,
-        scope: &SqlInterruptScope,
-    ) -> Result<UpdatePlan> {
-        let mut plan = UpdatePlan::default();
+    // fn reconcile(
+    //     &self,
+    //     records: Vec<SyncLoginData>,
+    //     server_now: ServerTimestamp,
+    //     telem: &mut telemetry::EngineIncoming,
+    //     scope: &SqlInterruptScope,
+    // ) -> Result<UpdatePlan> {
+    //     let mut plan = UpdatePlan::default();
 
-        for mut record in records {
-            scope.err_if_interrupted()?;
-            log::debug!("Processing remote change {}", record.guid());
-            let upstream = if let Some(inbound) = record.inbound.0.take() {
-                inbound
-            } else {
-                log::debug!("Processing inbound deletion (always prefer)");
-                plan.plan_delete(record.guid.clone());
-                continue;
-            };
-            let upstream_time = record.inbound.1;
-            match (record.mirror.take(), record.local.take()) {
-                (Some(mirror), Some(local)) => {
-                    log::debug!("  Conflict between remote and local, Resolving with 3WM");
-                    plan.plan_three_way_merge(local, mirror, upstream, upstream_time, server_now);
-                    telem.reconciled(1);
-                }
-                (Some(_mirror), None) => {
-                    log::debug!("  Forwarding mirror to remote");
-                    plan.plan_mirror_update(upstream, upstream_time);
-                    telem.applied(1);
-                }
-                (None, Some(local)) => {
-                    log::debug!("  Conflicting record without shared parent, using newer");
-                    plan.plan_two_way_merge(&local.login, (upstream, upstream_time));
-                    telem.reconciled(1);
-                }
-                (None, None) => {
-                    if let Some(dupe) = self.find_dupe(&upstream)? {
-                        log::debug!(
-                            "  Incoming record {} was is a dupe of local record {}",
-                            upstream.guid,
-                            dupe.guid
-                        );
-                        plan.plan_two_way_merge(&dupe, (upstream, upstream_time));
-                    } else {
-                        log::debug!("  No dupe found, inserting into mirror");
-                        plan.plan_mirror_insert(upstream, upstream_time, false);
-                    }
-                    telem.applied(1);
-                }
-            }
-        }
-        Ok(plan)
-    }
+    //     for mut record in records {
+    //         scope.err_if_interrupted()?;
+    //         log::debug!("Processing remote change {}", record.guid());
+    //         let upstream = if let Some(inbound) = record.inbound.0.take() {
+    //             inbound
+    //         } else {
+    //             log::debug!("Processing inbound deletion (always prefer)");
+    //             plan.plan_delete(record.guid.clone());
+    //             continue;
+    //         };
+    //         let upstream_time = record.inbound.1;
+    //         match (record.mirror.take(), record.local.take()) {
+    //             (Some(mirror), Some(local)) => {
+    //                 log::debug!("  Conflict between remote and local, Resolving with 3WM");
+    //                 plan.plan_three_way_merge(local, mirror, upstream, upstream_time, server_now);
+    //                 telem.reconciled(1);
+    //             }
+    //             (Some(_mirror), None) => {
+    //                 log::debug!("  Forwarding mirror to remote");
+    //                 plan.plan_mirror_update(upstream, upstream_time);
+    //                 telem.applied(1);
+    //             }
+    //             (None, Some(local)) => {
+    //                 log::debug!("  Conflicting record without shared parent, using newer");
+    //                 plan.plan_two_way_merge(&local.login, (upstream, upstream_time));
+    //                 telem.reconciled(1);
+    //             }
+    //             (None, None) => {
+    //                 if let Some(dupe) = self.find_dupe(&upstream)? {
+    //                     log::debug!(
+    //                         "  Incoming record {} was is a dupe of local record {}",
+    //                         upstream.guid,
+    //                         dupe.guid
+    //                     );
+    //                     plan.plan_two_way_merge(&dupe, (upstream, upstream_time));
+    //                 } else {
+    //                     log::debug!("  No dupe found, inserting into mirror");
+    //                     plan.plan_mirror_insert(upstream, upstream_time, false);
+    //                 }
+    //                 telem.applied(1);
+    //             }
+    //         }
+    //     }
+    //     Ok(plan)
+    // }
 
     fn execute_plan(&self, plan: UpdatePlan, scope: &SqlInterruptScope) -> Result<()> {
         // Because rusqlite want a mutable reference to create a transaction
@@ -717,51 +718,51 @@ impl LoginDb {
         Ok(())
     }
 
-    pub fn fetch_outgoing(
-        &self,
-        st: ServerTimestamp,
-        scope: &SqlInterruptScope,
-    ) -> Result<OutgoingChangeset> {
-        // Taken from iOS. Arbitrarily large, so that clients that want to
-        // process deletions first can; for us it doesn't matter.
-        const TOMBSTONE_SORTINDEX: i32 = 5_000_000;
-        const DEFAULT_SORTINDEX: i32 = 1;
-        let mut outgoing = OutgoingChangeset::new("passwords".into(), st);
-        let mut stmt = self.db.prepare_cached(&format!(
-            "SELECT * FROM loginsL WHERE sync_status IS NOT {synced}",
-            synced = SyncStatus::Synced as u8
-        ))?;
-        let rows = stmt.query_and_then(NO_PARAMS, |row| {
-            scope.err_if_interrupted()?;
-            Ok(if row.get::<_, bool>("is_deleted")? {
-                Payload::new_tombstone(row.get::<_, String>("guid")?)
-                    .with_sortindex(TOMBSTONE_SORTINDEX)
-            } else {
-                let login = Login::from_row(row)?;
-                Payload::from_record(login)?.with_sortindex(DEFAULT_SORTINDEX)
-            })
-        })?;
-        outgoing.changes = rows.collect::<Result<_>>()?;
+    // pub fn fetch_outgoing(
+    //     &self,
+    //     st: ServerTimestamp,
+    //     scope: &SqlInterruptScope,
+    // ) -> Result<OutgoingChangeset> {
+    //     // Taken from iOS. Arbitrarily large, so that clients that want to
+    //     // process deletions first can; for us it doesn't matter.
+    //     const TOMBSTONE_SORTINDEX: i32 = 5_000_000;
+    //     const DEFAULT_SORTINDEX: i32 = 1;
+    //     let mut outgoing = OutgoingChangeset::new("passwords".into(), st);
+    //     let mut stmt = self.db.prepare_cached(&format!(
+    //         "SELECT * FROM loginsL WHERE sync_status IS NOT {synced}",
+    //         synced = SyncStatus::Synced as u8
+    //     ))?;
+    //     let rows = stmt.query_and_then(NO_PARAMS, |row| {
+    //         scope.err_if_interrupted()?;
+    //         Ok(if row.get::<_, bool>("is_deleted")? {
+    //             Payload::new_tombstone(row.get::<_, String>("guid")?)
+    //                 .with_sortindex(TOMBSTONE_SORTINDEX)
+    //         } else {
+    //             let login = Login::from_row(row)?;
+    //             Payload::from_record(login)?.with_sortindex(DEFAULT_SORTINDEX)
+    //         })
+    //     })?;
+    //     outgoing.changes = rows.collect::<Result<_>>()?;
 
-        Ok(outgoing)
-    }
+    //     Ok(outgoing)
+    // }
 
-    fn do_apply_incoming(
-        &self,
-        inbound: IncomingChangeset,
-        telem: &mut telemetry::Engine,
-        scope: &SqlInterruptScope,
-    ) -> Result<OutgoingChangeset> {
-        let mut incoming_telemetry = telemetry::EngineIncoming::new();
-        let data = self.fetch_login_data(&inbound.changes, &mut incoming_telemetry, scope)?;
-        let plan = {
-            let result = self.reconcile(data, inbound.timestamp, &mut incoming_telemetry, scope);
-            telem.incoming(incoming_telemetry);
-            result
-        }?;
-        self.execute_plan(plan, scope)?;
-        Ok(self.fetch_outgoing(inbound.timestamp, scope)?)
-    }
+    // fn do_apply_incoming(
+    //     &self,
+    //     inbound: IncomingChangeset,
+    //     telem: &mut telemetry::Engine,
+    //     scope: &SqlInterruptScope,
+    // ) -> Result<OutgoingChangeset> {
+    //     let mut incoming_telemetry = telemetry::EngineIncoming::new();
+    //     let data = self.fetch_login_data(&inbound.changes, &mut incoming_telemetry, scope)?;
+    //     let plan = {
+    //         let result = self.reconcile(data, inbound.timestamp, &mut incoming_telemetry, scope);
+    //         telem.incoming(incoming_telemetry);
+    //         result
+    //     }?;
+    //     self.execute_plan(plan, scope)?;
+    //     Ok(self.fetch_outgoing(inbound.timestamp, scope)?)
+    // }
 
     fn put_meta(&self, key: &str, value: &dyn ToSql) -> Result<()> {
         self.execute_named_cached(
@@ -811,28 +812,28 @@ impl LoginDb {
         self.get_meta::<String>(schema::GLOBAL_STATE_META_KEY)
     }
 
-    /// A utility we can kill by the end of 2019 ;)
-    pub fn migrate_global_state(&self) -> Result<()> {
-        let tx = self.unchecked_transaction_imm()?;
-        if let Some(old_state) = self.get_meta("global_state")? {
-            log::info!("there's old global state - migrating");
-            let (new_sync_ids, new_global_state) = extract_v1_state(old_state, "passwords");
-            if let Some(sync_ids) = new_sync_ids {
-                self.put_meta(schema::GLOBAL_SYNCID_META_KEY, &sync_ids.global)?;
-                self.put_meta(schema::COLLECTION_SYNCID_META_KEY, &sync_ids.coll)?;
-                log::info!("migrated the sync IDs");
-            }
-            if let Some(new_global_state) = new_global_state {
-                self.set_global_state(&Some(new_global_state))?;
-                log::info!("migrated the global state");
-            }
-            self.delete_meta("global_state")?;
-        }
-        tx.commit()?;
-        Ok(())
-    }
+    // /// A utility we can kill by the end of 2019 ;)
+    // pub fn migrate_global_state(&self) -> Result<()> {
+    //     let tx = self.unchecked_transaction_imm()?;
+    //     if let Some(old_state) = self.get_meta("global_state")? {
+    //         log::info!("there's old global state - migrating");
+    //         let (new_sync_ids, new_global_state) = extract_v1_state(old_state, "passwords");
+    //         if let Some(sync_ids) = new_sync_ids {
+    //             self.put_meta(schema::GLOBAL_SYNCID_META_KEY, &sync_ids.global)?;
+    //             self.put_meta(schema::COLLECTION_SYNCID_META_KEY, &sync_ids.coll)?;
+    //             log::info!("migrated the sync IDs");
+    //         }
+    //         if let Some(new_global_state) = new_global_state {
+    //             self.set_global_state(&Some(new_global_state))?;
+    //             log::info!("migrated the global state");
+    //         }
+    //         self.delete_meta("global_state")?;
+    //     }
+    //     tx.commit()?;
+    //     Ok(())
+    // }
 }
-
+/*
 pub(crate) struct LoginStore<'a> {
     pub db: &'a LoginDb,
     pub scope: sql_support::SqlInterruptScope,
@@ -898,7 +899,7 @@ impl<'a> Store for LoginStore<'a> {
         Ok(())
     }
 }
-
+*/
 lazy_static! {
     static ref GET_ALL_SQL: String = format!(
         "SELECT {common_cols} FROM loginsL WHERE is_deleted = 0
@@ -932,7 +933,7 @@ lazy_static! {
     static ref CLONE_SINGLE_MIRROR_SQL: String =
         format!("{} WHERE guid = :guid", &*CLONE_ENTIRE_MIRROR_SQL,);
 }
-
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -982,3 +983,4 @@ mod tests {
         assert_eq!(res[1].guid, "dummy_000003");
     }
 }
+*/

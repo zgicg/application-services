@@ -32,8 +32,8 @@ pub enum ErrorKind {
     )]
     NoSuchRecord(String),
 
-    #[fail(display = "Error synchronizing: {}", _0)]
-    SyncAdapterError(#[fail(cause)] sync15::Error),
+    // #[fail(display = "Error synchronizing: {}", _0)]
+    // SyncAdapterError(#[fail(cause)] sync15::Error),
 
     #[fail(display = "Error parsing JSON data: {}", _0)]
     JsonError(#[fail(cause)] serde_json::Error),
@@ -50,7 +50,7 @@ pub enum ErrorKind {
 
 error_support::define_error! {
     ErrorKind {
-        (SyncAdapterError, sync15::Error),
+        // (SyncAdapterError, sync15::Error),
         (JsonError, serde_json::Error),
         (UrlParseError, url::ParseError),
         (SqlError, rusqlite::Error),

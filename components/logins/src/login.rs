@@ -7,7 +7,7 @@ use crate::util;
 use rusqlite::Row;
 use serde_derive::*;
 use std::time::{self, SystemTime};
-use sync15::ServerTimestamp;
+use util::ServerTimestamp;
 use sync_guid::Guid;
 
 #[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize, Default)]
@@ -259,26 +259,26 @@ impl SyncLoginData {
         &self.guid
     }
 
-    // Note: fetch_login_data in db.rs assumes that this can only fail with a deserialization error. Currently, this is true,
-    // but you'll need to adjust that function if you make this return another type of Result.
-    pub fn from_payload(
-        payload: sync15::Payload,
-        ts: ServerTimestamp,
-    ) -> std::result::Result<Self, serde_json::Error> {
-        let guid = payload.id.clone();
-        let login: Option<Login> = if payload.is_tombstone() {
-            None
-        } else {
-            let record: Login = payload.into_record()?;
-            Some(record)
-        };
-        Ok(Self {
-            guid,
-            local: None,
-            mirror: None,
-            inbound: (login, ts),
-        })
-    }
+    // // Note: fetch_login_data in db.rs assumes that this can only fail with a deserialization error. Currently, this is true,
+    // // but you'll need to adjust that function if you make this return another type of Result.
+    // pub fn from_payload(
+    //     payload: sync15::Payload,
+    //     ts: ServerTimestamp,
+    // ) -> std::result::Result<Self, serde_json::Error> {
+    //     let guid = payload.id.clone();
+    //     let login: Option<Login> = if payload.is_tombstone() {
+    //         None
+    //     } else {
+    //         let record: Login = payload.into_record()?;
+    //         Some(record)
+    //     };
+    //     Ok(Self {
+    //         guid,
+    //         local: None,
+    //         mirror: None,
+    //         inbound: (login, ts),
+    //     })
+    // }
 }
 
 macro_rules! impl_login_setter {
@@ -465,54 +465,54 @@ impl Login {
         delta
     }
 }
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn test_invalid_payload_timestamp() {
-        #[allow(clippy::unreadable_literal)]
-        let bad_timestamp = 18446732429235952000u64;
-        let bad_payload: sync15::Payload = serde_json::from_value(serde_json::json!({
-            "id": "123412341234",
-            "formSubmitURL": "https://www.example.com/submit",
-            "hostname": "https://www.example.com",
-            "username": "test",
-            "password": "test",
-            "timeCreated": bad_timestamp,
-            "timeLastUsed": "some other garbage",
-            "timePasswordChanged": -30, // valid i64 but negative
-        }))
-        .unwrap();
-        let login = SyncLoginData::from_payload(bad_payload, ServerTimestamp::default())
-            .unwrap()
-            .inbound
-            .0
-            .unwrap();
-        assert_eq!(login.time_created, 0);
-        assert_eq!(login.time_last_used, 0);
-        assert_eq!(login.time_password_changed, 0);
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+//     #[test]
+//     fn test_invalid_payload_timestamp() {
+//         #[allow(clippy::unreadable_literal)]
+//         let bad_timestamp = 18446732429235952000u64;
+//         let bad_payload: sync15::Payload = serde_json::from_value(serde_json::json!({
+//             "id": "123412341234",
+//             "formSubmitURL": "https://www.example.com/submit",
+//             "hostname": "https://www.example.com",
+//             "username": "test",
+//             "password": "test",
+//             "timeCreated": bad_timestamp,
+//             "timeLastUsed": "some other garbage",
+//             "timePasswordChanged": -30, // valid i64 but negative
+//         }))
+//         .unwrap();
+//         let login = SyncLoginData::from_payload(bad_payload, ServerTimestamp::default())
+//             .unwrap()
+//             .inbound
+//             .0
+//             .unwrap();
+//         assert_eq!(login.time_created, 0);
+//         assert_eq!(login.time_last_used, 0);
+//         assert_eq!(login.time_password_changed, 0);
 
-        let now64 = util::system_time_ms_i64(std::time::SystemTime::now());
-        let good_payload: sync15::Payload = serde_json::from_value(serde_json::json!({
-            "id": "123412341234",
-            "formSubmitURL": "https://www.example.com/submit",
-            "hostname": "https://www.example.com",
-            "username": "test",
-            "password": "test",
-            "timeCreated": now64 - 100,
-            "timeLastUsed": now64 - 50,
-            "timePasswordChanged": now64 - 25,
-        }))
-        .unwrap();
+//         let now64 = util::system_time_ms_i64(std::time::SystemTime::now());
+//         let good_payload: sync15::Payload = serde_json::from_value(serde_json::json!({
+//             "id": "123412341234",
+//             "formSubmitURL": "https://www.example.com/submit",
+//             "hostname": "https://www.example.com",
+//             "username": "test",
+//             "password": "test",
+//             "timeCreated": now64 - 100,
+//             "timeLastUsed": now64 - 50,
+//             "timePasswordChanged": now64 - 25,
+//         }))
+//         .unwrap();
 
-        let login = SyncLoginData::from_payload(good_payload, ServerTimestamp::default())
-            .unwrap()
-            .inbound
-            .0
-            .unwrap();
+//         let login = SyncLoginData::from_payload(good_payload, ServerTimestamp::default())
+//             .unwrap()
+//             .inbound
+//             .0
+//             .unwrap();
 
-        assert_eq!(login.time_created, now64 - 100);
-        assert_eq!(login.time_last_used, now64 - 50);
-        assert_eq!(login.time_password_changed, now64 - 25);
-    }
-}
+//         assert_eq!(login.time_created, now64 - 100);
+//         assert_eq!(login.time_last_used, now64 - 50);
+//         assert_eq!(login.time_password_changed, now64 - 25);
+//     }
+// }

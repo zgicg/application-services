@@ -10,7 +10,7 @@ name = "logins_ffi"
 crate-type = ["lib"]
 
 [features]
-reqwest = ["viaduct/reqwest", "logins/reqwest"]
+reqwest = ["viaduct/reqwest"]
 
 [dependencies]
 serde_json = "1.0.40"

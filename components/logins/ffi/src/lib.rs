@@ -75,9 +75,9 @@ pub unsafe extern "C" fn sync15_passwords_state_new_with_hex_key(
 }
 
 // indirection to help `?` figure out the target error type
-fn parse_url(url: &str) -> sync15::Result<url::Url> {
-    Ok(url::Url::parse(url)?)
-}
+// fn parse_url(url: &str) -> sync15::Result<url::Url> {
+//     Ok(url::Url::parse(url)?)
+// }
 
 #[no_mangle]
 pub extern "C" fn sync15_passwords_disable_mem_security(handle: u64, error: &mut ExternError) {
@@ -87,28 +87,28 @@ pub extern "C" fn sync15_passwords_disable_mem_security(handle: u64, error: &mut
     })
 }
 
-#[no_mangle]
-pub extern "C" fn sync15_passwords_sync(
-    handle: u64,
-    key_id: FfiStr<'_>,
-    access_token: FfiStr<'_>,
-    sync_key: FfiStr<'_>,
-    tokenserver_url: FfiStr<'_>,
-    error: &mut ExternError,
-) -> *mut c_char {
-    log::debug!("sync15_passwords_sync");
-    ENGINES.call_with_result(error, handle, |state| -> Result<_> {
-        let ping = state.sync(
-            &sync15::Sync15StorageClientInit {
-                key_id: key_id.into_string(),
-                access_token: access_token.into_string(),
-                tokenserver_url: parse_url(tokenserver_url.as_str())?,
-            },
-            &sync15::KeyBundle::from_ksync_base64(sync_key.as_str())?,
-        )?;
-        Ok(ping)
-    })
-}
+// #[no_mangle]
+// pub extern "C" fn sync15_passwords_sync(
+//     handle: u64,
+//     key_id: FfiStr<'_>,
+//     access_token: FfiStr<'_>,
+//     sync_key: FfiStr<'_>,
+//     tokenserver_url: FfiStr<'_>,
+//     error: &mut ExternError,
+// ) -> *mut c_char {
+//     log::debug!("sync15_passwords_sync");
+//     ENGINES.call_with_result(error, handle, |state| -> Result<_> {
+//         let ping = state.sync(
+//             &sync15::Sync15StorageClientInit {
+//                 key_id: key_id.into_string(),
+//                 access_token: access_token.into_string(),
+//                 tokenserver_url: parse_url(tokenserver_url.as_str())?,
+//             },
+//             &sync15::KeyBundle::from_ksync_base64(sync_key.as_str())?,
+//         )?;
+//         Ok(ping)
+//     })
+// }
 
 #[no_mangle]
 pub extern "C" fn sync15_passwords_touch(handle: u64, id: FfiStr<'_>, error: &mut ExternError) {
@@ -138,11 +138,11 @@ pub extern "C" fn sync15_passwords_wipe_local(handle: u64, error: &mut ExternErr
     ENGINES.call_with_result(error, handle, |state| state.wipe_local())
 }
 
-#[no_mangle]
-pub extern "C" fn sync15_passwords_reset(handle: u64, error: &mut ExternError) {
-    log::debug!("sync15_passwords_reset");
-    ENGINES.call_with_result(error, handle, |state| state.reset())
-}
+// #[no_mangle]
+// pub extern "C" fn sync15_passwords_reset(handle: u64, error: &mut ExternError) {
+//     log::debug!("sync15_passwords_reset");
+//     ENGINES.call_with_result(error, handle, |state| state.reset())
+// }
 
 #[no_mangle]
 pub extern "C" fn sync15_passwords_new_interrupt_handle(
