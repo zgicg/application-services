@@ -344,7 +344,8 @@ impl LoginDb {
         // one. (Note that the FFI, does not require that the `id` field be
         // present in the JSON, and replaces it with an empty string if missing).
         if login.guid.is_empty() {
-            login.guid = Guid::random()
+            panic!("oh no its empty");
+            //Guid::random()
         }
 
         // Fill in default metadata.
