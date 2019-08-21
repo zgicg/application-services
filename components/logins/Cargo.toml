@@ -27,7 +27,7 @@ sync-guid = { path = "../support/guid", features = ["rusqlite_support",] }
 
 [dependencies.rusqlite]
 version = "0.20.0"
-features = ["limits"]
+features = ["limits", "bundled"]
 
 [dev-dependencies]
 more-asserts = "0.2.1"
