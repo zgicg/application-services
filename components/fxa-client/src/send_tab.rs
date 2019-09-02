@@ -36,8 +36,8 @@ impl FirefoxAccount {
     }
 
     /// Send a single tab to another device designated by its device ID.
-    pub fn send_tab(&self, target_device_id: &str, title: &str, url: &str) -> Result<()> {
-        let devices = self.get_devices()?;
+    pub async fn send_tab(&self, target_device_id: &str, title: &str, url: &str) -> Result<()> {
+        let devices = self.get_devices().await?;
         let target = devices
             .iter()
             .find(|d| d.id == target_device_id)
@@ -45,7 +45,7 @@ impl FirefoxAccount {
         let payload = SendTabPayload::single_tab(title, url);
         let oldsync_key = self.get_scoped_key(scopes::OLD_SYNC)?;
         let command_payload = send_tab::build_send_command(&oldsync_key, target, &payload)?;
-        self.invoke_command(send_tab::COMMAND_NAME, target, &command_payload)
+        self.invoke_command(send_tab::COMMAND_NAME, target, &command_payload).await
     }
 
     pub(crate) fn handle_send_tab_command(

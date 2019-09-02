@@ -102,7 +102,7 @@ impl TokenFetcher for TokenServerFetcher {
                 format!("Bearer {}", self.access_token),
             )?
             .header(header_names::X_KEYID, self.key_id.clone())?
-            .send()?;
+            .send_blocking()?;
 
         if !resp.is_success() {
             log::warn!("Non-success status when fetching token: {}", resp.status);

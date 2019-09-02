@@ -4,6 +4,7 @@
 
 #![allow(unknown_lints)]
 #![warn(rust_2018_idioms)]
+#![feature(async_closure)]
 
 use crate::{
     commands::send_tab::SendTabPayload,
@@ -38,7 +39,7 @@ pub mod send_tab;
 mod state_persistence;
 mod util;
 
-type FxAClient = dyn http_client::FxAClient + Sync + Send;
+type FxAClient = http_client::Client; // + Sync + Send;
 
 // FIXME: https://github.com/myelin-ai/mockiato/issues/106.
 #[cfg(test)]
@@ -54,6 +55,17 @@ pub struct FirefoxAccount {
     state: StateV2,
     access_token_cache: HashMap<String, AccessTokenInfo>,
     flow_store: HashMap<String, OAuthFlow>,
+}
+
+impl std::clone::Clone for FirefoxAccount {
+    fn clone(&self) -> Self {
+        Self {
+            client: self.client.clone(),
+            state: self.state.clone(),
+            access_token_cache: Default::default(),
+            flow_store: Default::default(),
+        }
+    }
 }
 
 // If this structure is modified, please:
@@ -161,19 +173,19 @@ impl FirefoxAccount {
     }
 
     /// Get the Sync Token Server endpoint URL.
-    pub fn get_token_server_endpoint_url(&self) -> Result<Url> {
-        self.state.config.token_server_endpoint_url()
+    pub async fn get_token_server_endpoint_url(&self) -> Result<Url> {
+        self.state.config.token_server_endpoint_url().await
     }
 
     /// Get the "connection succeeded" page URL.
     /// It is typically used to redirect the user after
     /// having intercepted the OAuth login-flow state/code
     /// redirection.
-    pub fn get_connection_success_url(&self) -> Result<Url> {
+    pub async fn get_connection_success_url(&self) -> Result<Url> {
         let mut url = self
             .state
             .config
-            .content_url_path("connect_another_device")?;
+            .content_url_path("connect_another_device").await?;
         url.query_pairs_mut()
             .append_pair("showSuccessMessage", "true");
         Ok(url)
@@ -186,10 +198,10 @@ impl FirefoxAccount {
     ///
     /// * `entrypoint` - Application-provided string identifying the UI touchpoint
     ///                  through which the page was accessed, for metrics purposes.
-    pub fn get_manage_account_url(&mut self, entrypoint: &str) -> Result<Url> {
-        let mut url = self.state.config.content_url_path("settings")?;
+    pub async fn get_manage_account_url(&mut self, entrypoint: &str) -> Result<Url> {
+        let mut url = self.state.config.content_url_path("settings").await?;
         url.query_pairs_mut().append_pair("entrypoint", entrypoint);
-        self.add_account_identifiers_to_url(url)
+        self.add_account_identifiers_to_url(url).await
     }
 
     /// Get the "manage devices" page URL.
@@ -199,14 +211,14 @@ impl FirefoxAccount {
     ///
     /// * `entrypoint` - Application-provided string identifying the UI touchpoint
     ///                  through which the page was accessed, for metrics purposes.
-    pub fn get_manage_devices_url(&mut self, entrypoint: &str) -> Result<Url> {
-        let mut url = self.state.config.content_url_path("settings/clients")?;
+    pub async fn get_manage_devices_url(&mut self, entrypoint: &str) -> Result<Url> {
+        let mut url = self.state.config.content_url_path("settings/clients").await?;
         url.query_pairs_mut().append_pair("entrypoint", entrypoint);
-        self.add_account_identifiers_to_url(url)
+        self.add_account_identifiers_to_url(url).await
     }
 
-    fn add_account_identifiers_to_url(&mut self, mut url: Url) -> Result<Url> {
-        let profile = self.get_profile(false)?;
+    async fn add_account_identifiers_to_url(&mut self, mut url: Url) -> Result<Url> {
+        let profile = self.get_profile(false).await?;
         url.query_pairs_mut()
             .append_pair("uid", &profile.uid)
             .append_pair("email", &profile.email);
@@ -220,14 +232,14 @@ impl FirefoxAccount {
     /// and therefore we only retrieve 1 command per message.
     ///
     /// **💾 This method alters the persisted account state.**
-    pub fn handle_push_message(&mut self, payload: &str) -> Result<Vec<AccountEvent>> {
+    pub async fn handle_push_message(&mut self, payload: &str) -> Result<Vec<AccountEvent>> {
         let payload = serde_json::from_str(payload)?;
         match payload {
             PushPayload::CommandReceived(CommandReceivedPushPayload { index, .. }) => {
                 if cfg!(target_os = "ios") {
-                    self.fetch_device_command(index).map(|cmd| vec![cmd])
+                    self.fetch_device_command(index).await.map(|cmd| vec![cmd])
                 } else {
-                    self.poll_device_commands()
+                    self.poll_device_commands().await
                 }
             }
             PushPayload::Unknown => {
@@ -250,20 +262,20 @@ impl FirefoxAccount {
     /// the device could still be in the FxA devices manager.
     ///
     /// **💾 This method alters the persisted account state.**
-    pub fn disconnect(&mut self) {
+    pub async fn disconnect(&mut self) {
         if let Some(ref refresh_token) = self.state.refresh_token {
             // Delete the current device (which deletes the refresh token), or
             // the refresh token directly if we don't have a device.
-            let destroy_result = match self.get_current_device() {
+            let destroy_result = match self.get_current_device().await {
                 // If we get an error trying to fetch our device record we'll at least
                 // still try to delete the refresh token itself.
                 Ok(Some(device)) => {
                     self.client
-                        .destroy_device(&self.state.config, &refresh_token.token, &device.id)
+                        .destroy_device(&self.state.config, &refresh_token.token, &device.id).await
                 }
                 _ => self
                     .client
-                    .destroy_refresh_token(&self.state.config, &refresh_token.token),
+                    .destroy_refresh_token(&self.state.config, &refresh_token.token).await,
             };
             if let Err(e) = destroy_result {
                 log::warn!("Error while destroying the device: {}", e);

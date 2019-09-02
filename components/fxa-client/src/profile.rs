@@ -18,8 +18,8 @@ impl FirefoxAccount {
     /// and fetch the entire profile data from the server.
     ///
     /// **💾 This method alters the persisted account state.**
-    pub fn get_profile(&mut self, ignore_cache: bool) -> Result<Profile> {
-        match self.get_profile_helper(ignore_cache) {
+    pub async fn get_profile(&mut self, ignore_cache: bool) -> Result<Profile> {
+        match self.get_profile_helper(ignore_cache).await {
             Ok(res) => Ok(res),
             Err(e) => match e.kind() {
                 ErrorKind::RemoteError { code: 401, .. } => {
@@ -27,14 +27,14 @@ impl FirefoxAccount {
                         "Access token rejected, clearing the tokens cache and trying again."
                     );
                     self.clear_access_token_cache();
-                    self.get_profile_helper(ignore_cache)
+                    self.get_profile_helper(ignore_cache).await
                 }
                 _ => Err(e),
             },
         }
     }
 
-    fn get_profile_helper(&mut self, ignore_cache: bool) -> Result<Profile> {
+    async fn get_profile_helper(&mut self, ignore_cache: bool) -> Result<Profile> {
         let mut etag = None;
         if let Some(ref cached_profile) = self.state.last_seen_profile {
             if !ignore_cache && util::now() < cached_profile.cached_at + PROFILE_FRESHNESS_THRESHOLD
@@ -43,10 +43,10 @@ impl FirefoxAccount {
             }
             etag = Some(cached_profile.etag.clone());
         }
-        let profile_access_token = self.get_access_token(scopes::PROFILE)?.token;
+        let profile_access_token = self.get_access_token(scopes::PROFILE).await?.token;
         match self
             .client
-            .profile(&self.state.config, &profile_access_token, etag)?
+            .profile(&self.state.config, &profile_access_token, etag).await?
         {
             Some(response_and_etag) => {
                 if let Some(etag) = response_and_etag.etag {

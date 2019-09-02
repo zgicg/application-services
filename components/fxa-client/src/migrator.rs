@@ -14,7 +14,7 @@ impl FirefoxAccount {
     /// * `k_sync` - Hex-formatted kSync.
     ///
     /// **💾 This method alters the persisted account state.**
-    pub fn migrate_from_session_token(
+    pub async fn migrate_from_session_token(
         &mut self,
         session_token: &str,
         k_sync: &str,
@@ -27,7 +27,7 @@ impl FirefoxAccount {
         // Trade our session token for a refresh token.
         let duplicate_session = self
             .client
-            .duplicate_session(&self.state.config, &session_token)?;
+            .duplicate_session(&self.state.config, &session_token).await?;
 
         let duplicated_session_token = duplicate_session.session_token;
 
@@ -35,8 +35,8 @@ impl FirefoxAccount {
             &self.state.config,
             &duplicated_session_token,
             &[scopes::PROFILE, scopes::OLD_SYNC],
-        )?;
-        self.handle_oauth_response(oauth_response, None)?;
+        ).await?;
+        self.handle_oauth_response(oauth_response, None).await?;
 
         // Synthesize a scoped key from our kSync.
         let k_sync = hex::decode(k_sync)?;
@@ -47,7 +47,7 @@ impl FirefoxAccount {
             &self.state.config,
             &duplicated_session_token,
             scopes::OLD_SYNC,
-        )?;
+        ).await?;
         let oldsync_key_data = scoped_key_data.get(scopes::OLD_SYNC).ok_or_else(|| {
             ErrorKind::IllegalState("The session token doesn't have access to kSync!")
         })?;

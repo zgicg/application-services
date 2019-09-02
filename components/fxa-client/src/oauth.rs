@@ -28,7 +28,7 @@ impl FirefoxAccount {
     /// using `begin_oauth_flow`.
     ///
     /// * `scopes` - Space-separated list of requested scopes.
-    pub fn get_access_token(&mut self, scope: &str) -> Result<AccessTokenInfo> {
+    pub async fn get_access_token(&mut self, scope: &str) -> Result<AccessTokenInfo> {
         if scope.contains(' ') {
             return Err(ErrorKind::MultipleScopesRequested.into());
         }
@@ -37,14 +37,15 @@ impl FirefoxAccount {
                 return Ok(oauth_info.clone());
             }
         }
+        let scope_list = [scope]; // Apparently necessary for it to outlive `await` below..?
         let resp = match self.state.refresh_token {
             Some(ref refresh_token) => {
                 if refresh_token.scopes.contains(scope) {
                     self.client.oauth_token_with_refresh_token(
                         &self.state.config,
                         &refresh_token.token,
-                        &[scope],
-                    )?
+                        &scope_list,
+                    ).await?
                 } else {
                     return Err(ErrorKind::NoCachedToken(scope.to_string()).into());
                 }
@@ -53,8 +54,8 @@ impl FirefoxAccount {
                 Some(ref session_token) => self.client.oauth_token_with_session_token(
                     &self.state.config,
                     &session_token,
-                    &[scope],
-                )?,
+                    &scope_list,
+                ).await?,
                 None => return Err(ErrorKind::NoCachedToken(scope.to_string()).into()),
             },
         };
@@ -78,24 +79,35 @@ impl FirefoxAccount {
     /// * `pairing_url` - A pairing URL obtained by scanning a QR code produced by
     /// the pairing authority.
     /// * `scopes` - Space-separated list of requested scopes by the pairing supplicant.
-    pub fn begin_pairing_flow(&mut self, pairing_url: &str, scopes: &[&str]) -> Result<String> {
-        let mut url = self.state.config.content_url_path("/pair/supp")?;
+    pub async fn begin_pairing_flow(&mut self, pairing_url: &str, scopes: &[&str]) -> Result<String> {
+        let mut url = self.state.config.content_url_path("/pair/supp").await?;
         let pairing_url = Url::parse(pairing_url)?;
         if url.host_str() != pairing_url.host_str() {
             return Err(ErrorKind::OriginMismatch.into());
         }
         url.set_fragment(pairing_url.fragment());
-        self.oauth_flow(url, scopes)
+        self.oauth_flow(url, scopes).await
     }
 
     /// Initiate an OAuth login flow and return a URL that should be navigated to.
     ///
     /// * `scopes` - Space-separated list of requested scopes.
-    pub fn begin_oauth_flow(&mut self, scopes: &[&str]) -> Result<String> {
+    pub async fn begin_oauth_flow(&mut self, scopes: &[&str]) -> Result<String> {
+        
+        use wasm_bindgen::prelude::*;
+        #[wasm_bindgen]
+        extern "C" {
+            // Use `js_namespace` here to bind `console.log(..)` instead of just
+            // `log(..)`
+            #[wasm_bindgen(js_namespace = console, js_name=log)]
+            fn console_log(s: &str);
+        }
+        console_log("let's go!");
+
         let mut url = if self.state.last_seen_profile.is_some() {
-            self.state.config.content_url_path("/oauth/force_auth")?
+            self.state.config.content_url_path("/oauth/force_auth").await?
         } else {
-            self.state.config.authorization_endpoint()?
+            self.state.config.authorization_endpoint().await?
         };
 
         url.query_pairs_mut()
@@ -121,14 +133,14 @@ impl FirefoxAccount {
             None => scopes.iter().map(ToString::to_string).collect(),
         };
         let scopes: Vec<&str> = scopes.iter().map(<_>::as_ref).collect();
-        self.oauth_flow(url, &scopes)
+        self.oauth_flow(url, &scopes).await
     }
 
-    fn oauth_flow(&mut self, mut url: Url, scopes: &[&str]) -> Result<String> {
+    async fn oauth_flow(&mut self, mut url: Url, scopes: &[&str]) -> Result<String> {
         self.clear_access_token_cache();
         let state = util::random_base64_url_string(16)?;
         let code_verifier = util::random_base64_url_string(43)?;
-        let code_challenge = digest::digest(&digest::SHA256, &code_verifier.as_bytes())?;
+        let code_challenge = digest::digest(&digest::SHA256, &code_verifier.as_bytes()).await?;
         let code_challenge = base64::encode_config(&code_challenge, base64::URL_SAFE_NO_PAD);
         let scoped_keys_flow = ScopedKeysFlow::with_random_key()?;
         let jwk_json = scoped_keys_flow.generate_keys_jwk()?;
@@ -157,7 +169,7 @@ impl FirefoxAccount {
     /// redirect URL after a successful login.
     ///
     /// **💾 This method alters the persisted account state.**
-    pub fn complete_oauth_flow(&mut self, code: &str, state: &str) -> Result<()> {
+    pub async fn complete_oauth_flow(&mut self, code: &str, state: &str) -> Result<()> {
         self.clear_access_token_cache();
         let oauth_flow = match self.flow_store.remove(state) {
             Some(oauth_flow) => oauth_flow,
@@ -167,11 +179,11 @@ impl FirefoxAccount {
             &self.state.config,
             &code,
             &oauth_flow.code_verifier,
-        )?;
-        self.handle_oauth_response(resp, oauth_flow.scoped_keys_flow)
+        ).await?;
+        self.handle_oauth_response(resp, oauth_flow.scoped_keys_flow).await
     }
 
-    pub(crate) fn handle_oauth_response(
+    pub(crate) async fn handle_oauth_response(
         &mut self,
         resp: OAuthTokenResponse,
         scoped_keys_flow: Option<ScopedKeysFlow>,
@@ -180,7 +192,7 @@ impl FirefoxAccount {
             let scoped_keys_flow = scoped_keys_flow.ok_or_else(|| {
                 ErrorKind::UnrecoverableServerError("Got a JWE but have no JWK to decrypt it.")
             })?;
-            let decrypted_keys = scoped_keys_flow.decrypt_keys_jwe(jwe)?;
+            let decrypted_keys = scoped_keys_flow.decrypt_keys_jwe(jwe).await?;
             let scoped_keys: serde_json::Map<String, serde_json::Value> =
                 serde_json::from_str(&decrypted_keys)?;
             for (scope, key) in scoped_keys {
@@ -193,7 +205,7 @@ impl FirefoxAccount {
         // Let's be good citizens and destroy this access token.
         if let Err(err) = self
             .client
-            .destroy_access_token(&self.state.config, &resp.access_token)
+            .destroy_access_token(&self.state.config, &resp.access_token).await
         {
             log::warn!("Access token destruction failure: {:?}", err);
         }
@@ -205,7 +217,7 @@ impl FirefoxAccount {
         // Destroying a refresh token also destroys its associated device,
         // grab the device information for replication later.
         let old_device_info = match old_refresh_token {
-            Some(_) => match self.get_current_device() {
+            Some(_) => match self.get_current_device().await {
                 Ok(maybe_device) => maybe_device,
                 Err(err) => {
                     log::warn!("Error while getting previous device information: {:?}", err);
@@ -223,7 +235,7 @@ impl FirefoxAccount {
         if let Some(ref refresh_token) = old_refresh_token {
             if let Err(err) = self
                 .client
-                .destroy_refresh_token(&self.state.config, &refresh_token.token)
+                .destroy_refresh_token(&self.state.config, &refresh_token.token).await
             {
                 log::warn!("Refresh token destruction failure: {:?}", err);
             }
@@ -234,7 +246,7 @@ impl FirefoxAccount {
                 &device_info.device_type,
                 &device_info.push_subscription,
                 &device_info.available_commands,
-            ) {
+            ).await {
                 log::warn!("Device information restoration failed: {:?}", err);
             }
         }

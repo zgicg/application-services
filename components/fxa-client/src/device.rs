@@ -20,14 +20,14 @@ use std::collections::{HashMap, HashSet};
 impl FirefoxAccount {
     /// Fetches the list of devices from the current account including
     /// the current one.
-    pub fn get_devices(&self) -> Result<Vec<Device>> {
+    pub async fn get_devices(&self) -> Result<Vec<Device>> {
         let refresh_token = self.get_refresh_token()?;
-        self.client.devices(&self.state.config, &refresh_token)
+        self.client.devices(&self.state.config, &refresh_token).await
     }
 
-    pub fn get_current_device(&self) -> Result<Option<Device>> {
+    pub async fn get_current_device(&self) -> Result<Option<Device>> {
         Ok(self
-            .get_devices()?
+            .get_devices().await?
             .into_iter()
             .find(|d| d.is_current_device))
     }
@@ -61,7 +61,7 @@ impl FirefoxAccount {
     /// for the first time.
     ///
     /// **💾 This method alters the persisted account state.**
-    pub fn initialize_device(
+    pub async fn initialize_device(
         &mut self,
         name: &str,
         device_type: Type,
@@ -73,7 +73,7 @@ impl FirefoxAccount {
             .device_type(&device_type)
             .available_commands(&commands)
             .build();
-        self.update_device(update)?;
+        self.update_device(update).await?;
         Ok(())
     }
 
@@ -84,16 +84,16 @@ impl FirefoxAccount {
     /// encrypt the Send Tab command data.
     ///
     /// **💾 This method alters the persisted account state.**
-    pub fn ensure_capabilities(&mut self, capabilities: &[Capability]) -> Result<()> {
+    pub async fn ensure_capabilities(&mut self, capabilities: &[Capability]) -> Result<()> {
         let commands = self.register_capabilities(capabilities)?;
         let update = DeviceUpdateRequestBuilder::new()
             .available_commands(&commands)
             .build();
-        self.update_device(update)?;
+        self.update_device(update).await?;
         Ok(())
     }
 
-    pub(crate) fn invoke_command(
+    pub(crate) async fn invoke_command(
         &self,
         command: &str,
         target: &Device,
@@ -106,7 +106,7 @@ impl FirefoxAccount {
             command,
             &target.id,
             payload,
-        )
+        ).await
     }
 
     /// Poll and parse any pending available command for our device.
@@ -114,17 +114,17 @@ impl FirefoxAccount {
     /// commands delivery (push) can sometimes be unreliable on mobile devices.
     ///
     /// **💾 This method alters the persisted account state.**
-    pub fn poll_device_commands(&mut self) -> Result<Vec<AccountEvent>> {
+    pub async fn poll_device_commands(&mut self) -> Result<Vec<AccountEvent>> {
         let last_command_index = self.state.last_handled_command.unwrap_or(0);
         // We increment last_command_index by 1 because the server response includes the current index.
-        self.fetch_and_parse_commands(last_command_index + 1, None)
+        self.fetch_and_parse_commands(last_command_index + 1, None).await
     }
 
     /// Retrieve and parse a specific command designated by its index.
     ///
     /// **💾 This method alters the persisted account state.**
-    pub fn fetch_device_command(&mut self, index: u64) -> Result<AccountEvent> {
-        let mut account_events = self.fetch_and_parse_commands(index, Some(1))?;
+    pub async fn fetch_device_command(&mut self, index: u64) -> Result<AccountEvent> {
+        let mut account_events = self.fetch_and_parse_commands(index, Some(1)).await?;
         let account_event = account_events
             .pop()
             .ok_or_else(|| ErrorKind::IllegalState("Index fetch came out empty."))?;
@@ -134,7 +134,7 @@ impl FirefoxAccount {
         Ok(account_event)
     }
 
-    fn fetch_and_parse_commands(
+    async fn fetch_and_parse_commands(
         &mut self,
         index: u64,
         limit: Option<u64>,
@@ -142,20 +142,20 @@ impl FirefoxAccount {
         let refresh_token = self.get_refresh_token()?;
         let pending_commands =
             self.client
-                .pending_commands(&self.state.config, refresh_token, index, limit)?;
+                .pending_commands(&self.state.config, refresh_token, index, limit).await?;
         if pending_commands.messages.is_empty() {
             return Ok(Vec::new());
         }
         log::info!("Handling {} messages", pending_commands.messages.len());
-        let account_events = self.parse_commands_messages(pending_commands.messages)?;
+        let account_events = self.parse_commands_messages(pending_commands.messages).await?;
         self.state.last_handled_command = Some(pending_commands.index);
         Ok(account_events)
     }
 
-    fn parse_commands_messages(&self, messages: Vec<PendingCommand>) -> Result<Vec<AccountEvent>> {
+    async fn parse_commands_messages(&self, messages: Vec<PendingCommand>) -> Result<Vec<AccountEvent>> {
         let mut account_events: Vec<AccountEvent> = Vec::with_capacity(messages.len());
         let commands: Vec<_> = messages.into_iter().map(|m| m.data).collect();
-        let devices = self.get_devices()?;
+        let devices = self.get_devices().await?;
         for data in commands {
             match self.parse_command(data, &devices) {
                 Ok((sender, tab)) => account_events.push(AccountEvent::TabReceived((sender, tab))),
@@ -183,33 +183,33 @@ impl FirefoxAccount {
         }
     }
 
-    pub fn set_device_name(&self, name: &str) -> Result<UpdateDeviceResponse> {
+    pub async fn set_device_name(&self, name: &str) -> Result<UpdateDeviceResponse> {
         let update = DeviceUpdateRequestBuilder::new().display_name(name).build();
-        self.update_device(update)
+        self.update_device(update).await
     }
 
-    pub fn clear_device_name(&self) -> Result<UpdateDeviceResponse> {
+    pub async fn clear_device_name(&self) -> Result<UpdateDeviceResponse> {
         let update = DeviceUpdateRequestBuilder::new()
             .clear_display_name()
             .build();
-        self.update_device(update)
+        self.update_device(update).await
     }
 
-    pub fn set_push_subscription(
+    pub async fn set_push_subscription(
         &self,
         push_subscription: &PushSubscription,
     ) -> Result<UpdateDeviceResponse> {
         let update = DeviceUpdateRequestBuilder::new()
             .push_subscription(&push_subscription)
             .build();
-        self.update_device(update)
+        self.update_device(update).await
     }
 
     // TODO: this currently overwrites every other registered command
     // for the device because the server does not have a `PATCH commands`
     // endpoint yet.
     #[allow(dead_code)]
-    pub(crate) fn register_command(
+    pub(crate) async fn register_command(
         &self,
         command: &str,
         value: &str,
@@ -219,29 +219,29 @@ impl FirefoxAccount {
         let update = DeviceUpdateRequestBuilder::new()
             .available_commands(&commands)
             .build();
-        self.update_device(update)
+        self.update_device(update).await
     }
 
     // TODO: this currently deletes every command registered for the device
     // because the server does not have a `PATCH commands` endpoint yet.
     #[allow(dead_code)]
-    pub(crate) fn unregister_command(&self, _: &str) -> Result<UpdateDeviceResponse> {
+    pub(crate) async fn unregister_command(&self, _: &str) -> Result<UpdateDeviceResponse> {
         let commands = HashMap::new();
         let update = DeviceUpdateRequestBuilder::new()
             .available_commands(&commands)
             .build();
-        self.update_device(update)
+        self.update_device(update).await
     }
 
     #[allow(dead_code)]
-    pub(crate) fn clear_commands(&self) -> Result<UpdateDeviceResponse> {
+    pub(crate) async fn clear_commands(&self) -> Result<UpdateDeviceResponse> {
         let update = DeviceUpdateRequestBuilder::new()
             .clear_available_commands()
             .build();
-        self.update_device(update)
+        self.update_device(update).await
     }
 
-    pub(crate) fn replace_device(
+    pub(crate) async fn replace_device(
         &self,
         display_name: &str,
         device_type: &Type,
@@ -255,13 +255,13 @@ impl FirefoxAccount {
         if let Some(push_subscription) = push_subscription {
             builder = builder.push_subscription(push_subscription)
         }
-        self.update_device(builder.build())
+        self.update_device(builder.build()).await
     }
 
-    fn update_device(&self, update: DeviceUpdateRequest<'_>) -> Result<UpdateDeviceResponse> {
+    async fn update_device(&self, update: DeviceUpdateRequest<'_>) -> Result<UpdateDeviceResponse> {
         let refresh_token = self.get_refresh_token()?;
         self.client
-            .update_device(&self.state.config, refresh_token, update)
+            .update_device(&self.state.config, refresh_token, update).await
     }
 }
 

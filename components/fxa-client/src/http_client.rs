@@ -15,6 +15,7 @@ use viaduct::{header_names, status_codes, Method, Request, Response};
 const HAWK_HKDF_SALT: [u8; 32] = [0b0; 32];
 const HAWK_KEY_LENGTH: usize = 32;
 
+/*
 #[cfg_attr(test, mockiato::mockable)]
 pub trait FxAClient {
     fn oauth_tokens_from_code(
@@ -84,22 +85,24 @@ pub trait FxAClient {
         scope: &str,
     ) -> Result<HashMap<String, ScopedKeyDataResponse>>;
 }
+*/
 
 pub struct Client;
-impl FxAClient for Client {
-    fn profile(
+//impl FxAClient for Client {
+impl Client {
+    pub(crate) async fn profile(
         &self,
         config: &Config,
         access_token: &str,
         etag: Option<String>,
     ) -> Result<Option<ResponseAndETag<ProfileResponse>>> {
-        let url = config.userinfo_endpoint()?;
+        let url = config.userinfo_endpoint().await?;
         let mut request =
             Request::get(url).header(header_names::AUTHORIZATION, bearer_token(access_token))?;
         if let Some(etag) = etag {
             request = request.header(header_names::IF_NONE_MATCH, format!("\"{}\"", etag))?;
         }
-        let resp = Self::make_request(request)?;
+        let resp = Self::make_request(request).await?;
         if resp.status == status_codes::NOT_MODIFIED {
             return Ok(None);
         }
@@ -115,7 +118,7 @@ impl FxAClient for Client {
 
     // For the one-off generation of a `refresh_token` and associated meta from transient credentials.
 
-    fn oauth_tokens_from_code(
+    pub(crate) async fn oauth_tokens_from_code(
         &self,
         config: &Config,
         code: &str,
@@ -126,16 +129,16 @@ impl FxAClient for Client {
             "client_id": config.client_id,
             "code_verifier": code_verifier
         });
-        self.make_oauth_token_request(config, body)
+        self.make_oauth_token_request(config, body).await
     }
 
-    fn oauth_tokens_from_session_token(
+    pub(crate) async fn oauth_tokens_from_session_token(
         &self,
         config: &Config,
         session_token: &str,
         scopes: &[&str],
     ) -> Result<OAuthTokenResponse> {
-        let url = config.token_endpoint()?;
+        let url = config.token_endpoint().await?;
         let key = derive_auth_key_from_session_token(&session_token)?;
         let body = json!({
             "client_id": config.client_id,
@@ -146,12 +149,12 @@ impl FxAClient for Client {
         let request = HawkRequestBuilder::new(Method::Post, url, &key)
             .body(body)
             .build()?;
-        Ok(Self::make_request(request)?.json()?)
+        Ok(Self::make_request(request).await?.json()?)
     }
 
     // For the regular generation of an `access_token` from long-lived credentials.
 
-    fn oauth_token_with_refresh_token(
+    pub(crate) async fn oauth_token_with_refresh_token(
         &self,
         config: &Config,
         refresh_token: &str,
@@ -163,10 +166,10 @@ impl FxAClient for Client {
             "refresh_token": refresh_token,
             "scope": scopes.join(" ")
         });
-        self.make_oauth_token_request(config, body)
+        self.make_oauth_token_request(config, body).await
     }
 
-    fn oauth_token_with_session_token(
+    pub(crate) async fn oauth_token_with_session_token(
         &self,
         config: &Config,
         session_token: &str,
@@ -178,19 +181,19 @@ impl FxAClient for Client {
             "scope": scopes.join(" ")
         });
         let key = derive_auth_key_from_session_token(session_token)?;
-        let url = config.token_endpoint()?;
+        let url = config.token_endpoint().await?;
         let request = HawkRequestBuilder::new(Method::Post, url, &key)
             .body(parameters)
             .build()?;
-        Self::make_request(request)?.json().map_err(Into::into)
+        Self::make_request(request).await?.json().map_err(Into::into)
     }
 
-    fn duplicate_session(
+    pub(crate) async fn duplicate_session(
         &self,
         config: &Config,
         session_token: &str,
     ) -> Result<DuplicateTokenResponse> {
-        let url = config.auth_url_path("v1/session/duplicate")?;
+        let url = config.auth_url_path("v1/session/duplicate").await?;
         let key = derive_auth_key_from_session_token(&session_token)?;
         let duplicate_body = json!({
             "reason": "migration"
@@ -199,41 +202,41 @@ impl FxAClient for Client {
             .body(duplicate_body)
             .build()?;
 
-        Ok(Self::make_request(request)?.json()?)
+        Ok(Self::make_request(request).await?.json()?)
     }
 
-    fn destroy_access_token(&self, config: &Config, access_token: &str) -> Result<()> {
+    pub(crate) async fn destroy_access_token(&self, config: &Config, access_token: &str) -> Result<()> {
         let body = json!({
             "access_token": access_token,
         });
-        self.destroy_token_helper(config, &body)
+        self.destroy_token_helper(config, &body).await
     }
 
-    fn destroy_refresh_token(&self, config: &Config, refresh_token: &str) -> Result<()> {
+    pub(crate) async fn destroy_refresh_token(&self, config: &Config, refresh_token: &str) -> Result<()> {
         let body = json!({
             "refresh_token": refresh_token,
         });
-        self.destroy_token_helper(config, &body)
+        self.destroy_token_helper(config, &body).await
     }
 
-    fn pending_commands(
+    pub(crate) async fn pending_commands(
         &self,
         config: &Config,
         refresh_token: &str,
         index: u64,
         limit: Option<u64>,
     ) -> Result<PendingCommandsResponse> {
-        let url = config.auth_url_path("v1/account/device/commands")?;
+        let url = config.auth_url_path("v1/account/device/commands").await?;
         let mut request = Request::get(url)
             .header(header_names::AUTHORIZATION, bearer_token(refresh_token))?
             .query(&[("index", &index.to_string())]);
         if let Some(limit) = limit {
             request = request.query(&[("limit", &limit.to_string())])
         }
-        Ok(Self::make_request(request)?.json()?)
+        Ok(Self::make_request(request).await?.json()?)
     }
 
-    fn invoke_command(
+    pub(crate) async fn invoke_command(
         &self,
         config: &Config,
         refresh_token: &str,
@@ -246,51 +249,51 @@ impl FxAClient for Client {
             "target": target,
             "payload": payload
         });
-        let url = config.auth_url_path("v1/account/devices/invoke_command")?;
+        let url = config.auth_url_path("v1/account/devices/invoke_command").await?;
         let request = Request::post(url)
             .header(header_names::AUTHORIZATION, bearer_token(refresh_token))?
             .header(header_names::CONTENT_TYPE, "application/json")?
             .body(body.to_string());
-        Self::make_request(request)?;
+        Self::make_request(request).await?;
         Ok(())
     }
 
-    fn devices(&self, config: &Config, refresh_token: &str) -> Result<Vec<GetDeviceResponse>> {
-        let url = config.auth_url_path("v1/account/devices")?;
+    pub(crate) async fn devices(&self, config: &Config, refresh_token: &str) -> Result<Vec<GetDeviceResponse>> {
+        let url = config.auth_url_path("v1/account/devices").await?;
         let request =
             Request::get(url).header(header_names::AUTHORIZATION, bearer_token(refresh_token))?;
-        Ok(Self::make_request(request)?.json()?)
+        Ok(Self::make_request(request).await?.json()?)
     }
 
-    fn update_device(
+    pub(crate) async fn update_device(
         &self,
         config: &Config,
         refresh_token: &str,
         update: DeviceUpdateRequest<'_>,
     ) -> Result<UpdateDeviceResponse> {
-        let url = config.auth_url_path("v1/account/device")?;
+        let url = config.auth_url_path("v1/account/device").await?;
         let request = Request::post(url)
             .header(header_names::AUTHORIZATION, bearer_token(refresh_token))?
             .header(header_names::CONTENT_TYPE, "application/json")?
             .body(serde_json::to_string(&update)?);
-        Ok(Self::make_request(request)?.json()?)
+        Ok(Self::make_request(request).await?.json()?)
     }
 
-    fn destroy_device(&self, config: &Config, refresh_token: &str, id: &str) -> Result<()> {
+    pub(crate) async fn destroy_device(&self, config: &Config, refresh_token: &str, id: &str) -> Result<()> {
         let body = json!({
             "id": id,
         });
-        let url = config.auth_url_path("v1/account/device/destroy")?;
+        let url = config.auth_url_path("v1/account/device/destroy").await?;
         let request = Request::post(url)
             .header(header_names::AUTHORIZATION, bearer_token(refresh_token))?
             .header(header_names::CONTENT_TYPE, "application/json")?
             .body(body.to_string());
 
-        Self::make_request(request)?;
+        Self::make_request(request).await?;
         Ok(())
     }
 
-    fn scoped_key_data(
+    pub(crate) async fn scoped_key_data(
         &self,
         config: &Config,
         session_token: &str,
@@ -300,12 +303,12 @@ impl FxAClient for Client {
             "client_id": config.client_id,
             "scope": scope,
         });
-        let url = config.auth_url_path("v1/account/scoped-key-data")?;
+        let url = config.auth_url_path("v1/account/scoped-key-data").await?;
         let key = derive_auth_key_from_session_token(session_token)?;
         let request = HawkRequestBuilder::new(Method::Post, url, &key)
             .body(body)
             .build()?;
-        Self::make_request(request)?.json().map_err(|e| e.into())
+        Self::make_request(request).await?.json().map_err(|e| e.into())
     }
 }
 
@@ -314,23 +317,23 @@ impl Client {
         Self {}
     }
 
-    fn destroy_token_helper(&self, config: &Config, body: &serde_json::Value) -> Result<()> {
-        let url = config.oauth_url_path("v1/destroy")?;
-        Self::make_request(Request::post(url).json(body))?;
+    async fn destroy_token_helper(&self, config: &Config, body: &serde_json::Value) -> Result<()> {
+        let url = config.oauth_url_path("v1/destroy").await?;
+        Self::make_request(Request::post(url).json(body)).await?;
         Ok(())
     }
 
-    fn make_oauth_token_request(
+    async fn make_oauth_token_request(
         &self,
         config: &Config,
         body: serde_json::Value,
     ) -> Result<OAuthTokenResponse> {
-        let url = config.token_endpoint()?;
-        Ok(Self::make_request(Request::post(url).json(&body))?.json()?)
+        let url = config.token_endpoint().await?;
+        Ok(Self::make_request(Request::post(url).json(&body)).await?.json()?)
     }
 
-    fn make_request(request: Request) -> Result<Response> {
-        let resp = request.send()?;
+    async fn make_request(request: Request) -> Result<Response> {
+        let resp = request.send().await?;
         if resp.is_success() || resp.status == status_codes::NOT_MODIFIED {
             Ok(resp)
         } else {

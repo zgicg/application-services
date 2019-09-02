@@ -1,0 +1,26 @@
+[package]
+name = "rc_crypto_wasm"
+version = "0.1.0"
+authors = ["application-services@mozilla.com"]
+edition = "2018"
+license = "MPL-2.0"
+
+[lib]
+crate-type = ["lib"]
+
+[dependencies]
+base64 = "0.10.1"
+failure = "0.1.5"
+failure_derive = "0.1.5"
+error-support = { path = "../error" }
+hawk = { version = "3.0.0", default-features = false, optional = true }
+ece = { version = "1.1.0", default-features = false, features = ["serializable-keys"], optional = true }
+wasm-bindgen = "0.2.50"
+js-sys = "0.3.27"
+web-sys = { version = "0.3.27", features = ["Window", "Crypto", "CryptoKey", "SubtleCrypto"] }
+
+
+
+
+[dev-dependencies]
+hex = "0.3.2"

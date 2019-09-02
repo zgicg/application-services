@@ -229,7 +229,7 @@ impl Sync15StorageClient {
             req.url.path(),
             req.url.query()
         );
-        let resp = req.send()?;
+        let resp = req.send_blocking()?;
         log::trace!("response: {}", resp.status);
 
         let result = Sync15ClientResponse::from_response(resp)?;

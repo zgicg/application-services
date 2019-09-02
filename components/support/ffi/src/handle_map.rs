@@ -912,6 +912,27 @@ impl<T> ConcurrentHandleMap<T> {
         self.get_mut(Handle::from_u64(u)?, callback)
     }
 
+    /// Like the above, but async.
+    pub async fn get_mut_u64_async<F, E, R>(&self, u: u64, callback: F) -> Result<R, E>
+    where
+        F: FnOnce(&mut T) -> Box<dyn std::future::Future<Output=Result<R, E>> + Unpin>,
+        E: From<HandleError>,
+    {
+        self.get_mut_async(Handle::from_u64(u)?, callback).await
+    }
+
+    /// La la la la la docs
+    pub async fn get_mut_async<F, E, R>(&self, h: Handle, callback: F) -> Result<R, E>
+    where
+        F: FnOnce(&mut T) -> Box<dyn std::future::Future<Output=Result<R, E>> + Unpin>,
+        E: From<HandleError>,
+    {
+        let map = self.map.read().unwrap();
+        let mtx = map.get(h)?;
+        let mut hm = mtx.lock().unwrap();
+        callback(&mut *hm).await
+    }
+
     /// Helper that performs both a [`call_with_result`] and [`get`](ConcurrentHandleMap::get_mut).
     pub fn call_with_result_mut<R, E, F>(
         &self,

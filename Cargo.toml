@@ -2,6 +2,7 @@
 members = [
     "components/fxa-client",
     "components/fxa-client/ffi",
+    "components/fxa-client/js",
     "components/logins",
     "components/logins/ffi",
     "components/places",
@@ -18,7 +19,9 @@ members = [
     "components/support/rc_crypto",
     "components/support/rc_crypto/nss",
     "components/support/rc_crypto/nss/nss_sys",
+    "components/support/rc_crypto_wasm",
     "components/viaduct",
+    "components/viaduct_wasm",
     "components/sync15",
     "components/rc_log",
     "megazords/fenix",

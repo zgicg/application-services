@@ -108,22 +108,42 @@ impl Config {
         }
     }
 
-    fn remote_config(&self) -> Result<Arc<RemoteConfig>> {
+    async fn remote_config(&self) -> Result<Arc<RemoteConfig>> {
+        use wasm_bindgen::prelude::*;
+        #[wasm_bindgen]
+        extern "C" {
+            // Use `js_namespace` here to bind `console.log(..)` instead of just
+            // `log(..)`
+            #[wasm_bindgen(js_namespace = console, js_name=log)]
+            fn console_log(s: &str);
+        }
+
         if let Some(remote_config) = self.remote_config.borrow().clone() {
             return Ok(remote_config);
         }
 
-        let config_url =
-            Url::parse(&self.content_url)?.join(".well-known/fxa-client-configuration")?;
-        let resp: ClientConfigurationResponse =
-            Request::get(config_url).send()?.require_success()?.json()?;
+        console_log("getting remote config...");
+
+        //let config_url =
+        //    Url::parse(&self.content_url)?.join(".well-known/fxa-client-configuration")?;
+        //let resp: ClientConfigurationResponse =
+        //    Request::get(config_url).send().await?.require_success()?.json()?;
+        // XXX TODO: fails because no CORS on this endpoint.
+        let resp = ClientConfigurationResponse {
+            auth_server_base_url: "https://fake.example.com/".to_string(),
+            oauth_server_base_url: "https://fake.example.com/".to_string(),
+            profile_server_base_url: "https://fake.example.com/".to_string(),
+            sync_tokenserver_base_url: "https://fake.example.com/".to_string(),
+        };
 
         let openid_config_url =
             Url::parse(&self.content_url)?.join(".well-known/openid-configuration")?;
         let openid_resp: OpenIdConfigurationResponse = Request::get(openid_config_url)
-            .send()?
+            .send().await?
             .require_success()?
             .json()?;
+
+        console_log(&format!("got {:?}", openid_resp));
 
         let remote_config = RemoteConfig {
             auth_url: format!("{}/", resp.auth_server_base_url),
@@ -145,60 +165,60 @@ impl Config {
         Ok(result)
     }
 
-    pub fn content_url(&self) -> Result<Url> {
+    pub async fn content_url(&self) -> Result<Url> {
         Url::parse(&self.content_url).map_err(Into::into)
     }
 
-    pub fn content_url_path(&self, path: &str) -> Result<Url> {
-        self.content_url()?.join(path).map_err(Into::into)
+    pub async fn content_url_path(&self, path: &str) -> Result<Url> {
+        self.content_url().await?.join(path).map_err(Into::into)
     }
 
-    pub fn auth_url(&self) -> Result<Url> {
-        Url::parse(&self.remote_config()?.auth_url).map_err(Into::into)
+    pub async fn auth_url(&self) -> Result<Url> {
+        Url::parse(&self.remote_config().await?.auth_url).map_err(Into::into)
     }
 
-    pub fn auth_url_path(&self, path: &str) -> Result<Url> {
-        self.auth_url()?.join(path).map_err(Into::into)
+    pub async fn auth_url_path(&self, path: &str) -> Result<Url> {
+        self.auth_url().await?.join(path).map_err(Into::into)
     }
 
-    pub fn profile_url(&self) -> Result<Url> {
-        Url::parse(&self.remote_config()?.profile_url).map_err(Into::into)
+    pub async fn profile_url(&self) -> Result<Url> {
+        Url::parse(&self.remote_config().await?.profile_url).map_err(Into::into)
     }
 
-    pub fn profile_url_path(&self, path: &str) -> Result<Url> {
-        self.profile_url()?.join(path).map_err(Into::into)
+    pub async fn profile_url_path(&self, path: &str) -> Result<Url> {
+        self.profile_url().await?.join(path).map_err(Into::into)
     }
 
-    pub fn oauth_url(&self) -> Result<Url> {
-        Url::parse(&self.remote_config()?.oauth_url).map_err(Into::into)
+    pub async fn oauth_url(&self) -> Result<Url> {
+        Url::parse(&self.remote_config().await?.oauth_url).map_err(Into::into)
     }
 
-    pub fn oauth_url_path(&self, path: &str) -> Result<Url> {
-        self.oauth_url()?.join(path).map_err(Into::into)
+    pub async fn oauth_url_path(&self, path: &str) -> Result<Url> {
+        self.oauth_url().await?.join(path).map_err(Into::into)
     }
 
-    pub fn token_server_endpoint_url(&self) -> Result<Url> {
-        Url::parse(&self.remote_config()?.token_server_endpoint_url).map_err(Into::into)
+    pub async fn token_server_endpoint_url(&self) -> Result<Url> {
+        Url::parse(&self.remote_config().await?.token_server_endpoint_url).map_err(Into::into)
     }
 
-    pub fn authorization_endpoint(&self) -> Result<Url> {
-        Url::parse(&self.remote_config()?.authorization_endpoint).map_err(Into::into)
+    pub async fn authorization_endpoint(&self) -> Result<Url> {
+        Url::parse(&self.remote_config().await?.authorization_endpoint).map_err(Into::into)
     }
 
-    pub fn issuer(&self) -> Result<Url> {
-        Url::parse(&self.remote_config()?.issuer).map_err(Into::into)
+    pub async fn issuer(&self) -> Result<Url> {
+        Url::parse(&self.remote_config().await?.issuer).map_err(Into::into)
     }
 
-    pub fn jwks_uri(&self) -> Result<Url> {
-        Url::parse(&self.remote_config()?.jwks_uri).map_err(Into::into)
+    pub async fn jwks_uri(&self) -> Result<Url> {
+        Url::parse(&self.remote_config().await?.jwks_uri).map_err(Into::into)
     }
 
-    pub fn token_endpoint(&self) -> Result<Url> {
-        Url::parse(&self.remote_config()?.token_endpoint).map_err(Into::into)
+    pub async fn token_endpoint(&self) -> Result<Url> {
+        Url::parse(&self.remote_config().await?.token_endpoint).map_err(Into::into)
     }
 
-    pub fn userinfo_endpoint(&self) -> Result<Url> {
-        Url::parse(&self.remote_config()?.userinfo_endpoint).map_err(Into::into)
+    pub async fn userinfo_endpoint(&self) -> Result<Url> {
+        Url::parse(&self.remote_config().await?.userinfo_endpoint).map_err(Into::into)
     }
 }
 

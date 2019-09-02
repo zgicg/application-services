@@ -12,6 +12,10 @@ use rc_crypto::{
 use serde_derive::*;
 use serde_json::{self, json};
 
+use futures::future;
+use futures::future::{FutureExt, TryFutureExt};
+use futures::compat::{Compat, Future01CompatExt};
+
 impl FirefoxAccount {
     pub(crate) fn get_scoped_key(&self, scope: &str) -> Result<&ScopedKey> {
         self.state
@@ -89,7 +93,7 @@ impl ScopedKeysFlow {
         .to_string())
     }
 
-    pub fn decrypt_keys_jwe(self, jwe: &str) -> Result<String> {
+    pub async fn decrypt_keys_jwe(self, jwe: &str) -> Result<String> {
         let segments: Vec<&str> = jwe.split('.').collect();
         let header = base64::decode_config(&segments[0], base64::URL_SAFE_NO_PAD)?;
         let protected_header: serde_json::Value = serde_json::from_slice(&header)?;
@@ -146,8 +150,10 @@ impl ScopedKeysFlow {
             buf.extend_from_slice(&to_32b_buf(apv.len() as u32));
             buf.extend_from_slice(apv.as_bytes());
             buf.extend_from_slice(&to_32b_buf(256));
-            digest::digest(&digest::SHA256, &buf)
-        })?;
+            Box::new((async move || {
+                digest::digest(&digest::SHA256, &buf).await
+            })().boxed_local())
+        }).await?;
 
         // Part 2: decrypt the payload with the obtained secret
         if !segments[1].is_empty() {

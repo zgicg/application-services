@@ -1,0 +1,36 @@
+[package]
+name = "viaduct_wasm"
+version = "0.1.0"
+authors = ["Application Services <application-services@mozilla.com>"]
+edition = "2018"
+license = "MPL-2.0"
+
+[lib]
+crate-type = ["lib"]
+
+[features]
+default = []
+
+[dependencies]
+failure = "0.1.5"
+failure_derive = "0.1.5"
+url = "1.7.2"
+log = "0.4"
+lazy_static = "1.3.0"
+serde = "1.0"
+serde_json = "1.0"
+prost = "0.5.0"
+prost-derive = "0.5.0"
+bytes = "0.4.12"
+ffi-support = { path = "../support/ffi" }
+reqwest = { version = "0.9.19", features = ["default-tls-vendored"], optional = true }
+wasm-bindgen = "0.2.50"
+wasm-bindgen-futures = "0.3.27"
+js-sys = "0.3.27"
+web-sys = { version = "0.3.27", features = ["Request", "RequestInit", "RequestMode", "Response", "Window"] }
+futures-preview = { version = "=0.3.0-alpha.18",  features = ["async-await", "nightly", "io-compat"] }
+
+[build-dependencies]
+prost-build = "0.5.0"
+
+ 
