@@ -1,0 +1,237 @@
+syntax = "proto2";
+
+// Note: this file name must be unique due to how the iOS megazord works
+
+package msg_types;
+
+option java_package = "mozilla.appservices.experimental.formhistory";
+option java_outer_classname = "MsgTypes";
+
+/**
+ * A single form history entry.
+ *
+ * Primarially used in the `entries` field in `FormHistorySearchResults`.
+ */
+message FormHistoryEntry {
+    /**
+     * The GUID of the item.
+     */
+    required string guid = 1;
+
+    /**
+     * The HTML "name" attribute of the form input.
+     */
+    required string name = 2;
+
+    /**
+     * The value of the form input.
+     */
+    required string value = 3;
+
+    /**
+     * The number of times this record has been used locally (Currently, record metadata such as
+     * use counts, and creation/usage timestamps are not synced).
+     *
+     * Note that this value may be zero if the record arrived from sync. It will never be negative.
+     */
+    required int64 use_count = 4;
+
+    /**
+     * The timestamp of either:
+     *
+     * 1. The first local use of this entry, for entries created locally.
+     *
+     * 2. The date when the entry arrived via sync, for entries created by sync
+     *
+     * This value is a local timestamp, and is in milliseconds since the unix epoch.
+     */
+    required int64 created_at = 5;
+
+    /**
+     * The timestamp of either:
+     *
+     * 1. The most recent local use, if the record has ever been used locally.
+     *
+     * 2. The instant when the record arrived via sync, if the record is synced and has
+     *    never been used locally.
+     *
+     * This value is a local timestamp, and is in milliseconds since the unix epoch.
+     */
+    required int64 last_used = 6;
+
+    /**
+     * The frecency value. This is derived from an unspecified algorithm which takes
+     * some of the following factors into account:
+     *
+     * - How many times the value has been used.
+     * - How recently the value was last used.
+     * - How many times the value has survied expiry (these entries are relevant
+     *   since they have been used multiple times over a large time span).
+     *
+     * Currently, the algorithm matches desktops algorithm, however this is
+     * subject to change in the future.
+     *
+     * This value should always be a finite number >= 0.0. It is not guaranteed to
+     * be an integer.
+     */
+    required double frecency = 7;
+
+    /**
+     * True this record was created by sync.
+     */
+    required bool is_remote = 9;
+}
+
+/**
+ * The result set of a `FormHistoryQuery`.
+ *
+ */
+message FormHistorySearchResults {
+    /**
+     * If an offset was requested when searching, this is that value, otherwise 0.
+     */
+    required int32 offset = 1;
+
+    /**
+     * The total number of entries available for the provided query. If a limit or offset was
+     * provided when searching, this may not equal the number of results in `entries`.
+     */
+    required int32 total_count = 2;
+
+    /**
+     * The entries themselves.
+     */
+    repeated FormHistoryEntry entries = 3;
+}
+
+/**
+ * A message used for autocomplete searches. It supports:
+ *
+ * - Limiting/pagination (via `limit` and `offset`)
+ * - Only querying `created_at`/`last_used`/`use_count` within certain bounds.
+ * - Searching by field name or field value.
+ * - Specifying the ordering of results.
+ *
+ * This is a little complicated, but reduces the API surface.
+ */
+message FormHistoryQuery {
+    /**
+     * The maximum number of entries to return. If zero is provided, this is interpreted as
+     * "no limit", e.g. return every entry (note that the offset is still respected in this case).
+     */
+    optional int32 limit = 1 [default = 0];
+
+    /**
+     * If returning only a subset of results is desired, the "offset" may be provided.
+     */
+    optional int32 offset = 2 [default = 0];
+
+    /**
+     * If this query would like to limit the set of results to those created after
+     * a specific point in time, the `min_created_at` value may be provided.
+     *
+     * If provided, this should be a local timestamp represented in milliseconds
+     * since the unix epoch.
+     */
+    optional int64 min_created_at = 3;
+
+    /**
+     * If this query would like to limit the set of results to those created before
+     * a specific point in time, the `max_created_at` valu may be provided.
+     *
+     * If provided, this should be a local timestamp represented in milliseconds
+     * since the unix epoch.
+     */
+    optional int64 max_created_at = 4;
+
+    /**
+     * If this query would like to limit the set of results to records used more
+     * recently than a specific time, then the `max_last_used` value may be
+     * provided.
+     *
+     * Note that for records never used locally, the `last_used` is equivalent to
+     * the date the record arrived via sync. (These records may be excluded by
+     * constraining the `use_count` to be >= 1, via the `min_use_count` value).
+     */
+    optional int64 min_last_used = 5;
+
+    /**
+     * If this query would like to limit the set of results to records used more
+     * recently than a specific time, then the `max_last_used` value may be
+     * provided.
+     *
+     * Note that for records never used locally, the `last_used` is equivalent to
+     * the date the record arrived via sync. (These records may be excluded by
+     * constraining the `use_count` to be >= 1, via the `min_use_count` value).
+     */
+    optional int64 max_last_used = 6;
+
+    /**
+     * If this query would like to limit the result set to items which have only been
+     * used more than a certain number of times, they can specify the `min_use_count`.
+     *
+     * Note that there's currently no way to constrain the use count maximum.
+     */
+    optional int64 min_use_count = 7;
+
+    /**
+     * If this query would like to limit the resutl set to items whose frecencies are
+     * greater than a specific value, then they can specify the minimum frecency.
+     *
+     * Note that there's currently no way to constrain the frecency maximum.
+     */
+    optional double min_frecency = 8;
+
+    /**
+     * If a specific ordering is required for the results,
+     * the ordering to use. Note that the ordering used in
+     * all cases is consistent, so there's no need to
+     * specify this, even when using pagination.
+     */
+    optional FormHistoryQueryOrdering ordering = 9 [default = UNSPECIFIED];
+
+    /**
+     * Provide the field name to limit the search to
+     * exact matches of this name.
+     */
+    optional string field_name = 10;
+
+    /**
+     * Provide the field value to limit the search to
+     * values which begin with the specified value.
+     */
+    optional string field_value = 11;
+}
+
+/**
+ * An enumeration for the ordering of the query results.
+ */
+enum FormHistoryQueryOrdering {
+    /**
+     * The results will be returned in an unspecified,
+     * but consistent order.
+     */
+    UNSPECIFIED = 1;
+
+    /**
+     * The results will ordered by use count, with ties
+     * going to the most recently used item.
+     */
+    USE_COUNT_DESC = 2;
+
+    /**
+     * The results will be ordered by which item was used
+     * most recently.
+     */
+    LAST_USE_DESC = 3;
+
+    /**
+     * The results will be ordered by frecency, with higher values
+     * preceeding lower values.
+     *
+     * Note that we do not have an index on frecency, so this can be
+     * a bit expensive, so it shouldn't be used if many results are
+     * being returned.
+     */
+    FRECENCY_DESC = 4;
+}
