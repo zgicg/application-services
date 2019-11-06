@@ -1,0 +1,31 @@
+$schema: moz://mozilla.org/schemas/glean/metrics/1-0-0
+
+demo_thing_rs:
+
+  did_it:
+    type: event
+    description: |
+      Event recorded when the user does the thing
+    notification_emails:
+      - application-services@mozilla.com
+    bugs:
+      - https://github.com/mozilla/application-services/issues/1234
+    data_reviews:
+      - http://example.com/path/to/data-review-goes-here
+    expires: 2020-06-01
+
+  thing_timer:
+    type: timing_distribution
+    description: |
+      The time taken to do the thing
+    notification_emails:
+      - application-services@mozilla.com
+    bugs:
+      - https://github.com/mozilla/application-services/issues/1234
+    data_reviews:
+      - http://example.com/path/to/data-review-goes-here
+    expires: 2020-06-01
+    send_in_pings:
+        - metrics
+        # Send in the "events" ping so it's easier to trigger a flush for testing purposes.
+        - events

@@ -1,0 +1,15 @@
+[package]
+name = "demo_thing_ffi"
+edition = "2018"
+version = "0.1.0"
+authors = ["Application Services <application-services@mozilla.com>"]
+license = "MPL-2.0"
+
+[lib]
+name = "demo_thing_ffi"
+crate-type = ["lib"]
+
+[dependencies]
+log = "0.4"
+lazy_static = "1.4.0"
+demo_thing = { path = ".." }

@@ -1,0 +1,15 @@
+[package]
+name = "demo_thing"
+edition = "2018"
+version = "0.1.0"
+authors = ["Application Serices <application-services@mozilla.com>"]
+license = "MPL-2.0"
+build = "build.rs"
+
+[dependencies]
+log = "0.4"
+lazy_static = "1.4.0"
+rc_glean = { path = "../support/rc_glean" }
+
+[build-dependencies]
+rc_glean = { path = "../support/rc_glean" }

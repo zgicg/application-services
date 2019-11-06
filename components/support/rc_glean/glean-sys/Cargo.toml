@@ -1,0 +1,18 @@
+[package]
+name = "glean-sys"
+version = "0.1.0"
+authors = ["application-services@mozilla.com"]
+edition = "2018"
+license = "MPL-2.0"
+links = "glean_ffi"
+build = "build.rs"
+
+[lib]
+crate-type = ["lib"]
+
+[build-dependencies]
+bindgen = "0.51.0"
+serde = "1.0"
+serde_json = "1.0"
+regex = "1.3.1"
+glean-ffi = { path = "/home/rfk/repos/mozilla/glean/glean-core/ffi" }

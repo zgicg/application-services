@@ -1,4 +1,4 @@
-libraryVersion: 0.42.3
+libraryVersion: 0.42.4
 groupId: org.mozilla.appservices
 projects:
   fxaclient:
@@ -8,6 +8,12 @@ projects:
       - name: fxaclient
         type: aar
     description: Firefox Accounts client.
+  demothing:
+    path: components/demo_thing/android
+    artifactId: demothing
+    publications:
+      - name: demothing
+        type: aar
   logins:
     path: components/logins/android
     artifactId: logins
@@ -29,6 +35,13 @@ projects:
       - name: rustlog
         type: aar
     description: Android hook into the log crate.
+  rcglean:
+    path: components/support/rc_glean/android
+    artifactId: rcglean
+    publications:
+      - name: rcglean
+        type: aar
+    description: Android hook to configure Glean telemetry
   httpconfig:
     path: components/viaduct/android
     artifactId: httpconfig

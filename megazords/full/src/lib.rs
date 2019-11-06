@@ -10,8 +10,10 @@ use std::os::raw::c_char;
 
 pub use fxaclient_ffi;
 pub use logins_ffi;
+pub use demo_thing_ffi;
 pub use places_ffi;
 pub use push_ffi;
+pub use rc_glean_ffi;
 pub use rc_log_ffi;
 pub use sync_manager_ffi;
 pub use viaduct;
