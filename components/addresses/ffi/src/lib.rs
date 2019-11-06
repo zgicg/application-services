@@ -12,7 +12,7 @@ use ffi_support::ConcurrentHandleMap;
 use ffi_support::{
     define_box_destructor, define_handle_map_deleter, define_string_destructor, ExternError, FfiStr,
 };
-use addresses::{ddress, PasswordEngine, Result};
+use addresses::{ddress, AddressEngine, Result};
 use std::os::raw::c_char;
 use std::sync::{Arc, Mutex};
 
@@ -20,7 +20,7 @@ lazy_static::lazy_static! {
     // TODO: this is basically a RwLock<HandleMap<Mutex<Arc<Mutex<...>>>>.
     // but could just be a `RwLock<HandleMap<Arc<Mutex<...>>>>`.
     // Find a way to express this cleanly in ffi_support?
-    pub static ref ENGINES: ConcurrentHandleMap<Arc<Mutex<PasswordEngine>>> = ConcurrentHandleMap::new();
+    pub static ref ENGINES: ConcurrentHandleMap<Arc<Mutex<AddressEngine>>> = ConcurrentHandleMap::new();
 }
 
 #[no_mangle]
@@ -33,7 +33,7 @@ pub extern "C" fn sync15_passwords_state_new(
     ENGINES.insert_with_result(error, || -> addresses::Result<_> {
         let path = db_path.as_str();
         let key = encryption_key.as_str();
-        Ok(Arc::new(Mutex::new(PasswordEngine::new(path, Some(key))?)))
+        Ok(Arc::new(Mutex::new(AddressEngine::new(path, Some(key))?)))
     })
 }
 
@@ -74,7 +74,7 @@ pub unsafe extern "C" fn sync15_passwords_state_new_with_hex_key(
         let key = bytes_to_key_string(encryption_key, encryption_key_len as usize);
         // We have a Option<String>, but need an Option<&str>...
         let opt_key_ref = key.as_ref().map(String::as_str);
-        Ok(Arc::new(Mutex::new(PasswordEngine::new(
+        Ok(Arc::new(Mutex::new(AddressEngine::new(
             path,
             opt_key_ref,
         )?)))

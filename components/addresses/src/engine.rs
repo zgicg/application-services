@@ -14,12 +14,12 @@ use sync15::{
 // This isn't really an engine in the firefox sync15 desktop sense -- it's
 // really a bundle of state that contains the sync storage client, the sync
 // state, and the address DB.
-pub struct PasswordEngine {
+pub struct AddressEngine {
     pub db: AddressDb,
     pub mem_cached_state: Cell<MemoryCachedState>,
 }
 
-impl PasswordEngine {
+impl AddressEngine {
     pub fn new(path: impl AsRef<Path>, encryption_key: Option<&str>) -> Result<Self> {
         let db = AddressDb::open(path, encryption_key)?;
         Ok(Self {
@@ -160,7 +160,7 @@ mod test {
 
     #[test]
     fn test_general() {
-        let engine = PasswordEngine::new_in_memory(Some("secret")).unwrap();
+        let engine = AddressEngine::new_in_memory(Some("secret")).unwrap();
         let list = engine.list().expect("Grabbing Empty list to work");
         assert_eq!(list.len(), 0);
         let start_us = util::system_time_ms_i64(SystemTime::now());
@@ -279,5 +279,5 @@ mod test {
 #[test]
 fn test_send() {
     fn ensure_send<T: Send>() {}
-    ensure_send::<PasswordEngine>();
+    ensure_send::<AddressEngine>();
 }

@@ -10,7 +10,7 @@ use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
 use cli_support::prompt::{prompt_char, prompt_string, prompt_usize};
 use failure::Fail;
 
-use addresses::{Address, PasswordEngine};
+use addresses::{Address, AddressEngine};
 use prettytable::{cell, row, Cell, Row, Table};
 use rusqlite::NO_PARAMS;
 use serde_json;
@@ -120,7 +120,7 @@ fn timestamp_to_string(milliseconds: i64) -> String {
     dtl.format("%l:%M:%S %p%n%h %e, %Y").to_string()
 }
 
-fn show_sql(e: &PasswordEngine, sql: &str) -> Result<()> {
+fn show_sql(e: &AddressEngine, sql: &str) -> Result<()> {
     use rusqlite::types::Value;
     let conn = e.conn();
     let mut stmt = conn.prepare(sql)?;
@@ -158,7 +158,7 @@ fn show_sql(e: &PasswordEngine, sql: &str) -> Result<()> {
     Ok(())
 }
 
-fn show_all(engine: &PasswordEngine) -> Result<Vec<Guid>> {
+fn show_all(engine: &AddressEngine) -> Result<Vec<Guid>> {
     let records = engine.list()?;
 
     let mut table = prettytable::Table::new();
@@ -214,7 +214,7 @@ fn show_all(engine: &PasswordEngine) -> Result<Vec<Guid>> {
     Ok(v)
 }
 
-fn prompt_record_id(e: &PasswordEngine, action: &str) -> Result<Option<String>> {
+fn prompt_record_id(e: &AddressEngine, action: &str) -> Result<Option<String>> {
     let index_to_id = show_all(e)?;
     let input = if let Some(input) = prompt_usize(&format!("Enter (idx) of record to {}", action)) {
         input
@@ -289,7 +289,7 @@ fn main() -> Result<()> {
     // TODO: allow users to use stage/etc.
     let cli_fxa = get_cli_fxa(get_default_fxa_config(), cred_file)?;
 
-    let engine = PasswordEngine::new(db_path, Some(encryption_key))?;
+    let engine = AddressEngine::new(db_path, Some(encryption_key))?;
 
     log::info!("Engine has {} passwords", engine.list()?.len());
 

@@ -23,74 +23,74 @@ typedef struct Sync15PasswordsError {
     char *_Nullable message;
 } Sync15PasswordsError;
 
-typedef uint64_t Sync15PasswordEngineHandle;
+typedef uint64_t Sync15AddressEngineHandle;
 
 typedef struct Sync15PasswordsInterruptHandle Sync15PasswordsInterruptHandle;
 
 uint64_t sync15_passwords_num_open_connections(Sync15PasswordsError *_Nonnull error_out);
 
-Sync15PasswordEngineHandle sync15_passwords_state_new(char const *_Nonnull db_path,
+Sync15AddressEngineHandle sync15_passwords_state_new(char const *_Nonnull db_path,
                                                       char const *_Nonnull encryption_key,
                                                       Sync15PasswordsError *_Nonnull error_out);
 
-Sync15PasswordEngineHandle sync15_passwords_state_new_with_hex_key(char const *_Nonnull db_path,
+Sync15AddressEngineHandle sync15_passwords_state_new_with_hex_key(char const *_Nonnull db_path,
                                                                    uint8_t const *encryption_key_bytes,
                                                                    uint32_t encryption_key_len,
                                                                    Sync15PasswordsError *_Nonnull error_out);
 
-void sync15_passwords_state_destroy(Sync15PasswordEngineHandle handle,
+void sync15_passwords_state_destroy(Sync15AddressEngineHandle handle,
                                     Sync15PasswordsError *_Nonnull error_out);
 
-char *_Nullable sync15_passwords_get_by_id(Sync15PasswordEngineHandle handle,
+char *_Nullable sync15_passwords_get_by_id(Sync15AddressEngineHandle handle,
                                           char const *_Nonnull id,
                                           Sync15PasswordsError *_Nonnull error_out);
 
-char *_Nullable sync15_passwords_get_by_hostname(Sync15PasswordEngineHandle handle,
+char *_Nullable sync15_passwords_get_by_hostname(Sync15AddressEngineHandle handle,
                                           char const *_Nonnull hostname,
                                           Sync15PasswordsError *_Nonnull error_out);
 
-char *_Nullable sync15_passwords_get_all(Sync15PasswordEngineHandle handle,
+char *_Nullable sync15_passwords_get_all(Sync15AddressEngineHandle handle,
                                          Sync15PasswordsError *_Nonnull error_out);
 
-char *_Nullable sync15_passwords_sync(Sync15PasswordEngineHandle handle,
+char *_Nullable sync15_passwords_sync(Sync15AddressEngineHandle handle,
                                       char const *_Nonnull key_id,
                                       char const *_Nonnull access_token,
                                       char const *_Nonnull sync_key,
                                       char const *_Nonnull token_server_url,
                                       Sync15PasswordsError *_Nonnull error);
 
-void sync15_passwords_wipe(Sync15PasswordEngineHandle handle,
+void sync15_passwords_wipe(Sync15AddressEngineHandle handle,
                            Sync15PasswordsError *_Nonnull error);
 
-void sync15_passwords_wipe_local(Sync15PasswordEngineHandle handle,
+void sync15_passwords_wipe_local(Sync15AddressEngineHandle handle,
                                  Sync15PasswordsError *_Nonnull error);
 
-void sync15_passwords_disable_mem_security(Sync15PasswordEngineHandle handle,
+void sync15_passwords_disable_mem_security(Sync15AddressEngineHandle handle,
                                            Sync15PasswordsError *_Nonnull error);
 
-void sync15_passwords_reset(Sync15PasswordEngineHandle handle,
+void sync15_passwords_reset(Sync15AddressEngineHandle handle,
                             Sync15PasswordsError *_Nonnull error);
 
-void sync15_passwords_touch(Sync15PasswordEngineHandle handle,
+void sync15_passwords_touch(Sync15AddressEngineHandle handle,
                             char const *_Nonnull id,
                             Sync15PasswordsError *_Nonnull error);
 
-uint8_t sync15_passwords_delete(Sync15PasswordEngineHandle handle,
+uint8_t sync15_passwords_delete(Sync15AddressEngineHandle handle,
                                 char const *_Nonnull id,
                                 Sync15PasswordsError *_Nonnull error);
 
-char *_Nullable sync15_passwords_add(Sync15PasswordEngineHandle handle,
+char *_Nullable sync15_passwords_add(Sync15AddressEngineHandle handle,
                                      char const *_Nonnull json,
                                      Sync15PasswordsError *_Nonnull error);
 
-void sync15_passwords_update(Sync15PasswordEngineHandle handle,
+void sync15_passwords_update(Sync15AddressEngineHandle handle,
                              char const *_Nonnull json,
                              Sync15PasswordsError *_Nonnull error);
 
 void sync15_passwords_destroy_string(char const *_Nonnull str);
 
 Sync15PasswordsInterruptHandle *_Nullable
-sync15_passwords_new_interrupt_handle(Sync15PasswordEngineHandle handle,
+sync15_passwords_new_interrupt_handle(Sync15AddressEngineHandle handle,
                                       Sync15PasswordsError *_Nonnull error);
 
 void sync15_passwords_interrupt(Sync15PasswordsInterruptHandle *_Nonnull handle,

@@ -17,11 +17,13 @@ use sync15::{
     MemoryCachedState,
 };
 use tabs::TabsEngine;
+use addresses::AddressesEngine;
 
 const LOGINS_ENGINE: &str = "passwords";
 const HISTORY_ENGINE: &str = "history";
 const BOOKMARKS_ENGINE: &str = "bookmarks";
 const TABS_ENGINE: &str = "tabs";
+const ADDRESSES_ENGINE: &str = "addresses";
 
 // Casts aren't allowed in `match` arms, so we can't directly match
 // `SyncParams.device_type`, which is an `i32`, against `DeviceType`
@@ -39,6 +41,7 @@ pub struct SyncManager {
     places: Weak<PlacesApi>,
     logins: Weak<Mutex<PasswordEngine>>,
     tabs: Weak<Mutex<TabsEngine>>,
+    addresses: Weak<Mutex<AddressesEngine>>,
 }
 
 impl SyncManager {
@@ -48,6 +51,7 @@ impl SyncManager {
             places: Weak::new(),
             logins: Weak::new(),
             tabs: Weak::new(),
+            addresses: Weak::new(),
         }
     }
 
@@ -57,6 +61,10 @@ impl SyncManager {
 
     pub fn set_logins(&mut self, logins: Arc<Mutex<PasswordEngine>>) {
         self.logins = Arc::downgrade(&logins);
+    }
+
+    pub fn set_addresses(&mut self, addresses: Arc<Mutex<AddressEngine>>) {
+        self.addresses = Arc::downgrade(&addresses);
     }
 
     pub fn set_tabs(&mut self, tabs: Arc<Mutex<TabsEngine>>) {
@@ -192,6 +200,7 @@ impl SyncManager {
         let places = self.places.upgrade();
         let tabs = self.tabs.upgrade();
         let logins = self.logins.upgrade();
+        let addresses = self.addresses.upgrade();
         if places.is_some() {
             have_engines.push(HISTORY_ENGINE);
             have_engines.push(BOOKMARKS_ENGINE);
@@ -201,6 +210,9 @@ impl SyncManager {
         }
         if tabs.is_some() {
             have_engines.push(TABS_ENGINE);
+        }
+        if addresses.is_some() {
+            have_engines.push(ADDRESSES_ENGINE);
         }
         check_engine_list(&params.engines_to_sync, &have_engines)?;
 
@@ -234,6 +246,7 @@ impl SyncManager {
         let mut places = self.places.upgrade();
         let logins = self.logins.upgrade();
         let tabs = self.tabs.upgrade();
+        let addresses = self.addresses.upgrade();
 
         let key_bundle = sync15::KeyBundle::from_ksync_base64(&params.acct_sync_key)?;
         let tokenserver_url = url::Url::parse(&params.acct_tokenserver_url)?;
@@ -242,6 +255,7 @@ impl SyncManager {
         let bookmarks_sync = should_sync(&params, BOOKMARKS_ENGINE);
         let history_sync = should_sync(&params, HISTORY_ENGINE);
         let tabs_sync = should_sync(&params, TABS_ENGINE);
+        let addresses_sync = should_sync(&params, ADDRESSES_ENGINE);
 
         let places_conn = if bookmarks_sync || history_sync {
             places
@@ -254,6 +268,7 @@ impl SyncManager {
         };
         let l = logins.as_ref().map(|l| l.lock().expect("poisoned mutex"));
         let t = tabs.as_ref().map(|t| t.lock().expect("poisoned mutex"));
+        let a = addresses.as_ref().map(|a| a.lock().expect("poisoned mutex"));
         // TODO(issue 1684) this isn't ideal, we should have real support for interruption.
         let p = Arc::new(AtomicUsize::new(0));
         let interruptee = sql_support::SqlInterruptScope::new(p);
@@ -281,6 +296,11 @@ impl SyncManager {
         if let Some(tbs) = t.as_ref() {
             assert!(tabs_sync, "Should have already checked");
             stores.push(Box::new(tabs::TabsStore::new(&tbs.storage)));
+        }
+
+        if let Some(adr) = a.as_ref() {
+            assert!(addresses_sync, "Should have already checked");
+            stores.push(Box::new(addresses::AddressStore::new(&adr.storage)));
         }
 
         let store_refs: Vec<&dyn sync15::Store> = stores.iter().map(|s| &**s).collect();
