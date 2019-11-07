@@ -63,7 +63,7 @@ impl SyncManager {
         self.logins = Arc::downgrade(&logins);
     }
 
-    pub fn set_addresses(&mut self, addresses: Arc<Mutex<AddressEngine>>) {
+    pub fn set_addresses(&mut self, addresses: Arc<Mutex<AddressesEngine>>) {
         self.addresses = Arc::downgrade(&addresses);
     }
 
@@ -293,14 +293,14 @@ impl SyncManager {
             stores.push(Box::new(logins::LoginStore::new(&le.db)));
         }
 
+        if let Some(adr) = a.as_ref() {
+            assert!(addresses_sync, "Should have already checked");
+            stores.push(Box::new(addresses::AddressesStore::new(&adr.db)));
+        }
+
         if let Some(tbs) = t.as_ref() {
             assert!(tabs_sync, "Should have already checked");
             stores.push(Box::new(tabs::TabsStore::new(&tbs.storage)));
-        }
-
-        if let Some(adr) = a.as_ref() {
-            assert!(addresses_sync, "Should have already checked");
-            stores.push(Box::new(addresses::AddressStore::new(&adr.storage)));
         }
 
         let store_refs: Vec<&dyn sync15::Store> = stores.iter().map(|s| &**s).collect();

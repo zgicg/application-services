@@ -1,7 +1,7 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-use crate::db::{AddressDb, AddressStore};
+use crate::db::{AddressesDb, AddressesStore};
 use crate::error::*;
 use crate::address::Address;
 use std::cell::Cell;
@@ -14,14 +14,14 @@ use sync15::{
 // This isn't really an engine in the firefox sync15 desktop sense -- it's
 // really a bundle of state that contains the sync storage client, the sync
 // state, and the address DB.
-pub struct AddressEngine {
-    pub db: AddressDb,
+pub struct AddressesEngine {
+    pub db: AddressesDb,
     pub mem_cached_state: Cell<MemoryCachedState>,
 }
 
-impl AddressEngine {
+impl AddressesEngine {
     pub fn new(path: impl AsRef<Path>, encryption_key: Option<&str>) -> Result<Self> {
-        let db = AddressDb::open(path, encryption_key)?;
+        let db = AddressesDb::open(path, encryption_key)?;
         Ok(Self {
             db,
             mem_cached_state: Cell::default(),
@@ -29,7 +29,7 @@ impl AddressEngine {
     }
 
     pub fn new_in_memory(encryption_key: Option<&str>) -> Result<Self> {
-        let db = AddressDb::open_in_memory(encryption_key)?;
+        let db = AddressesDb::open_in_memory(encryption_key)?;
         Ok(Self {
             db,
             mem_cached_state: Cell::default(),
@@ -110,7 +110,7 @@ impl AddressEngine {
 
         let mut disk_cached_state = self.db.get_global_state()?;
         let mut mem_cached_state = self.mem_cached_state.take();
-        let store = AddressStore::new(&self.db);
+        let store = AddressesStore::new(&self.db);
 
         let mut result = sync_multiple(
             &[&store],
@@ -160,7 +160,7 @@ mod test {
 
     #[test]
     fn test_general() {
-        let engine = AddressEngine::new_in_memory(Some("secret")).unwrap();
+        let engine = AddressesEngine::new_in_memory(Some("secret")).unwrap();
         let list = engine.list().expect("Grabbing Empty list to work");
         assert_eq!(list.len(), 0);
         let start_us = util::system_time_ms_i64(SystemTime::now());
@@ -279,5 +279,5 @@ mod test {
 #[test]
 fn test_send() {
     fn ensure_send<T: Send>() {}
-    ensure_send::<AddressEngine>();
+    ensure_send::<AddressesEngine>();
 }

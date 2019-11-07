@@ -18,7 +18,7 @@ mod util;
 mod ffi;
 
 // Mostly exposed for the sync manager.
-pub use crate::db::AddressStore;
+pub use crate::db::AddressesStore;
 pub use crate::engine::*;
 pub use crate::error::*;
 pub use crate::address::*;

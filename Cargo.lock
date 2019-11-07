@@ -2477,6 +2477,7 @@ dependencies = [
 name = "sync_manager"
 version = "0.1.0"
 dependencies = [
+ "addresses 0.1.0",
  "bytes 0.4.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "error-support 0.1.0",
  "failure 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",

@@ -27,12 +27,12 @@ use sync15::{
 };
 use sync_guid::Guid;
 
-pub struct AddressDb {
+pub struct AddressesDb {
     pub db: Connection,
     interrupt_counter: Arc<AtomicUsize>,
 }
 
-impl AddressDb {
+impl AddressesDb {
     pub fn with_connection(db: Connection, encryption_key: Option<&str>) -> Result<Self> {
         #[cfg(test)]
         {
@@ -102,14 +102,14 @@ impl AddressDb {
     }
 }
 
-impl ConnExt for AddressDb {
+impl ConnExt for AddressesDb {
     #[inline]
     fn conn(&self) -> &Connection {
         &self.db
     }
 }
 
-impl Deref for AddressDb {
+impl Deref for AddressesDb {
     type Target = Connection;
     #[inline]
     fn deref(&self) -> &Connection {
@@ -119,7 +119,7 @@ impl Deref for AddressDb {
 
 // address specific stuff.
 
-impl AddressDb {
+impl AddressesDb {
     fn mark_as_synchronized(
         &self,
         guids: &[&str],
@@ -928,13 +928,13 @@ impl AddressDb {
     }
 }
 
-pub struct AddressStore<'a> {
-    pub db: &'a AddressDb,
+pub struct AddressesStore<'a> {
+    pub db: &'a AddressesDb,
     pub scope: sql_support::SqlInterruptScope,
 }
 
-impl<'a> AddressStore<'a> {
-    pub fn new(db: &'a AddressDb) -> Self {
+impl<'a> AddressesStore<'a> {
+    pub fn new(db: &'a AddressesDb) -> Self {
         Self {
             db,
             scope: db.begin_interrupt_scope(),
@@ -942,7 +942,7 @@ impl<'a> AddressStore<'a> {
     }
 }
 
-impl<'a> Store for AddressStore<'a> {
+impl<'a> Store for AddressesStore<'a> {
     fn collection_name(&self) -> &'static str {
         "passwords"
     }
@@ -1046,7 +1046,7 @@ mod tests {
     use super::*;
     #[test]
     fn test_bad_record() {
-        let db = AddressDb::open_in_memory(Some("testing")).unwrap();
+        let db = AddressesDb::open_in_memory(Some("testing")).unwrap();
         let scope = db.begin_interrupt_scope();
         let mut telem = sync15::telemetry::EngineIncoming::new();
         let res = db
