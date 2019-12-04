@@ -170,6 +170,8 @@ impl FxAClient for Client {
             "grant_type": "refresh_token",
             "client_id": config.client_id,
             "refresh_token": refresh_token,
+            // N.B. artificially-low token duration, for testing purposes.
+            "ttl": 30,
             "scope": scopes.join(" ")
         });
         self.make_oauth_token_request(config, body)
