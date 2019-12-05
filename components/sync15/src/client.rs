@@ -319,18 +319,27 @@ impl Sync15StorageClient {
     where
         for<'a> T: serde::de::Deserialize<'a>,
     {
-        log::trace!(
-            "request: {} {} ({:?})",
-            req.method,
-            req.url.path(),
-            req.url.query()
+        let rqlog = req.clone();
+        log::info!(
+            "request: {} {} q({:?}) b({:?})",
+            rqlog.method,
+            rqlog.url.path(),
+            rqlog.url.query(),
+            rqlog.body.as_ref().map(|b| String::from_utf8_lossy(b))
         );
         let resp = req.send()?;
+        let rplog = resp.clone();
 
         let result = Sync15ClientResponse::from_response(resp, &self.backoff)?;
         match result {
             Sync15ClientResponse::Success { .. } => Ok(result),
             _ => {
+                log::warn!("### Request failed: {} {} :: {:?} {:?}",
+                    rqlog.method,
+                    rqlog.url.path(),
+                    rplog.status,
+                    rplog.text(),
+                );
                 if require_success {
                     Err(result.create_storage_error().into())
                 } else {

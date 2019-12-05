@@ -1,4 +1,4 @@
-libraryVersion: 0.44.0
+libraryVersion: 0.44.1-DURABLE-SYNC
 groupId: org.mozilla.appservices
 projects:
   fxaclient:

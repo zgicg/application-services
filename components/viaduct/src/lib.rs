@@ -80,6 +80,11 @@ impl Request {
     }
 
     pub fn send(self) -> Result<Response, Error> {
+        if self.method == Method::Put {
+          // We should never be trying to put with an empty body.
+          assert!(self.body.is_some());
+          assert!(self.body.clone().expect("definitely some").len() > 0)
+        }
         crate::backend::send(self)
     }
 
