@@ -18,6 +18,7 @@ members = [
     "components/support/interrupt",
     "components/support/rc_crypto",
     "components/support/rc_crypto/nss",
+    "components/support/rc_crypto/nss/nss_build_common",
     "components/support/rc_crypto/nss/nss_sys",
     "components/support/sql",
     "components/sync_manager",
@@ -37,3 +38,7 @@ members = [
 opt-level = "s"
 debug = true
 lto = true
+
+[patch.crates-io]
+rusqlite = { git = 'https://github.com/thomcc/rusqlite', branch = 'link-target' }
+libsqlite3-sys = { git = 'https://github.com/thomcc/rusqlite', branch = 'link-target' }
