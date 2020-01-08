@@ -42,3 +42,4 @@ lto = true
 [patch.crates-io]
 rusqlite = { git = 'https://github.com/thomcc/rusqlite', branch = 'link-target' }
 libsqlite3-sys = { git = 'https://github.com/thomcc/rusqlite', branch = 'link-target' }
+
