@@ -1,9 +1,19 @@
 # Viaduct
 
-Viaduct is our HTTP request library, which can make requests either via a
-rust-based (reqwest) networking stack (used on iOS and for local desktop use,
-for tests and the like), or using a stack that calls a function passed into it
-over the FFI (on android).
+Viaduct is our HTTP request library, which supports different backends for
+different use-cases:
+
+* A default rust-based networking stack (using the `reqwest` crate) that works
+  without any setup or configuration. This is suitable for consumers who do not
+  need to customize any networking behaviour (current iOS and local testing).
+
+* An FFI backend which delegates network requests to an application-provided
+  callback. This is currently used on Android in order to route all network
+  requesst from rust though the same stack as is used by the rest of the app
+  (e.g. GeckoView's networking layer).
+
+* A stub backend that can be used for automated tests that don't actually
+  hit the network.
 
 For usage info, you can run `cargo +nightly doc -p viaduct` (the `+nightly` is
 optional, however some intra-doc links require it), it has several examples.

@@ -2,23 +2,66 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicI8, Ordering};
 
 #[cfg(feature = "reqwest")]
 mod reqwest;
 
 mod ffi;
 
+// XXX TODO: only include this in the -forUnitTests build so that we don't
+// pay any code-size cost for this in production builds?
+pub mod stub;
+
 // We allow globally forcing us to use the FFI backend for better
 // testing, for example.
-static FFI_FORCED: AtomicBool = AtomicBool::new(false);
+static WHICH_BACKEND: AtomicU8 = AtomicBool::new(0);
 
-fn ffi_is_forced() -> bool {
-    FFI_FORCED.load(Ordering::SeqCst)
+enum WhichBackend {
+    Uninitialized,
+    Reqwest,
+    FFI,
+    Stub,
 }
 
-pub fn force_enable_ffi_backend(v: bool) {
-    FFI_FORCED.store(v, Ordering::SeqCst)
+impl WhichBackend {
+    fn as_u8(&self) -> u8 {
+        match self {
+            WhichBackend::Uninitialized => 0,
+            WhichBackend::Reqwest => 1,
+            WhichBackend::FFI => 2,
+            WhichBackend::Stub => 3,
+        }
+    }
+}
+
+impl Into<u8> for WhichBackend {
+    into(&self) -> u8 {
+        self.as_u8();
+    }
+}
+
+impl From<u8> for WhichBackend {
+    from(v: u8) -> Self {
+        match v {
+            1 => WhichBackend::Reqwest,
+            2 => WhichBackend::FFI,
+            3 => WhichBackend::Stub,
+            _ => WhichBackend::Uninitialized,
+        }
+    }
+}
+
+pub fn force_enable_ffi_backend() {
+    WHICH_BACKEND.store(WhichBackend::FFI, Ordering::SeqCst)
+}
+
+pub fn force_enable_stub_backend() {
+    WHICH_BACKEND.store(WhichBackend::Stub, Ordering::SeqCst)
+}
+
+fn which_backend_is_enabled() -> WhichBackend {
+    WHICH_BACKEND.load(Ordering::SeqCst).into()
 }
 
 pub(crate) fn note_backend(which: &str) {
@@ -38,16 +81,11 @@ pub(crate) fn note_backend(which: &str) {
 
 pub fn send(request: crate::Request) -> Result<crate::Response, crate::Error> {
     validate_request(&request)?;
-    if ffi_is_forced() {
-        return self::ffi::send(request);
-    }
-    #[cfg(feature = "reqwest")]
-    {
-        self::reqwest::send(request)
-    }
-    #[cfg(not(feature = "reqwest"))]
-    {
-        self::ffi::send(request)
+    match which_backend_is_enabled() {
+        WhichBackend::Uninitialized => Err(Error::BackendNotInitialized),
+        WhichBackend::Reqwest => self::reqwest::send(request),
+        WhichBackend::FFI => self::ffi::send(request),
+        WhichBackend::Stub => self::stub::send(request)
     }
 }
 

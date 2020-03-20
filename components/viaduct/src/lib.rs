@@ -15,6 +15,7 @@ mod settings;
 pub use error::*;
 
 pub use backend::force_enable_ffi_backend;
+pub use backend::stub;
 pub use headers::{consts as header_names, Header, HeaderName, Headers, InvalidHeaderName};
 
 pub(crate) mod msg_types {
