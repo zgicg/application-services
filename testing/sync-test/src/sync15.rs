@@ -5,6 +5,8 @@
 // (You can safely ignore the noisy 500 for
 // `https://stable.dev.lcip.org/auth/v1/account/destroy` at the end).
 
+use std::cell::{Cell, RefCell};
+
 use failure::Error;
 use interrupt::NeverInterrupts;
 use log::*;
@@ -33,7 +35,10 @@ struct TestRecord {
 
 // A test store, that doesn't hold on to any state (yet!)
 struct TestStore {
-    // ...
+    name: &'static str,
+    store_sync_assoc: RefCell<StoreSyncAssociation>,
+    was_reset_called: Cell<bool>,
+    test_record: RefCell<Vec<TestRecord>>,
 }
 
 // Lotsa boilerplate to implement `Store`... 😅
@@ -55,29 +60,8 @@ impl Store for TestStore {
     ) -> Result<OutgoingChangeset, Error> {
         let inbound = inbound.into_iter().next().unwrap();
         for (payload, _timestamp) in inbound.changes {
-            // Here's an example of a magic "into" conversion that we define
-            // ourselves. If you look inside
-            // `/components/support/sync15-traits/src/payload.rs`, you'll see
-            // a declaration like:
-            //
-            //     fn into_record<T>(self) -> Result<T, serde_json::Error>
-            //     where
-            //         for<'a> T: Deserialize<'a>
-            //
-            // That means `into_record` returns any type `T` that implements
-            // the `Deserialize` trait—which `TestRecord` does! (The `for<'a>`
-            // thing is a "higher-ranked trait bound", and means that the
-            // function is generic over any lifetime that `T` has. We need
-            // that because serde's `Deserialize` trait has a lifetime parameter
-            // `'de` here: https://docs.serde.rs/serde/de/trait.Deserialize.html
-            // ...but we don't care what it is. You can read it like "where T
-            // implements `Deserialize` for any lifetime 'a").
-            //
-            // But what happens if we can't actually deserialize the payload into
-            // T? (Let's say T has a required field that the payload doesn't have).
-            // That's why `into_record` returns a `Result<T, Error>` instead of just
-            // `T`.
             let incoming_record: TestRecord = payload.into_record()?;
+            // TODO: Push `incoming_record` into `self.test_record`.
             // `info!` is a macro from the `log` crate. It's like `println!`,
             // except it'll give us a green "INFO" line, and also let us filter
             // them out with the `RUST_LOG` environment variable.
@@ -85,13 +69,19 @@ impl Store for TestStore {
         }
 
         // Let's make an outgoing record to upload...
+        /*
         let outgoing_record = TestRecord {
             // Random for now, but we can use any GUID we want...
             // `"recordAAAAAA".into()` also works!
             id: Guid::random(),
-            test1: "hi! 💖".into(),
+            test1: self.record.clone(),
         };
+        */
+        let outgoing_record = self.test_record.borrow();
         let mut outgoing = OutgoingChangeset::new(self.collection_name(), inbound.timestamp);
+        // TODO: Turn `outgoing_record` (which is a `&Vec<TestRecord>`)
+        // into a `Vec<Payload>`, so that we can assign it to
+        // `outgoing.changes`.
         outgoing
             .changes
             .push(Payload::from_record(outgoing_record)?);
@@ -125,15 +115,23 @@ impl Store for TestStore {
         // If we held on to the collection's sync ID (and global sync ID),
         // this is where we'd return them...but, for now, we just pretend
         // like it's a first sync.
-        Ok(StoreSyncAssociation::Disconnected)
+        let our_assoc = self.store_sync_assoc.borrow();
+        println!(
+            "TEST {}: get_sync_assoc called with {:?}",
+            self.name, *our_assoc
+        );
+        Ok(our_assoc.clone())
     }
 
     /// Reset the store without wiping local data, ready for a "first sync".
     /// `assoc` defines how this store is to be associated with sync.
-    fn reset(&self, _assoc: &StoreSyncAssociation) -> Result<(), Error> {
+    fn reset(&self, assoc: &StoreSyncAssociation) -> Result<(), Error> {
         // If we held on to any state, this is where we'd drop it, and replace
         // it with what we were given in `assoc`. But we don't, so we do
         // nothing.
+        println!("TEST {}: Reset called", self.name);
+        self.was_reset_called.set(true);
+        *self.store_sync_assoc.borrow_mut() = assoc.clone();
         Ok(())
     }
 
@@ -145,16 +143,15 @@ impl Store for TestStore {
     }
 }
 
-fn sync_first_client(c0: &mut TestClient) {
+fn sync_first_client(c0: &mut TestClient, store: &Store) {
     let (init, key, _device_id) = c0
         .data_for_sync()
         .expect("Should have data for syncing first client");
 
-    let store = TestStore {};
     let mut persisted_global_state = None;
     let mut mem_cached_state = MemoryCachedState::default();
     let result = sync15::sync_multiple(
-        &[&store],
+        &[store],
         &mut persisted_global_state,
         &mut mem_cached_state,
         &init,
@@ -165,16 +162,15 @@ fn sync_first_client(c0: &mut TestClient) {
     println!("Finished syncing first client: {:?}", result);
 }
 
-fn sync_second_client(c1: &mut TestClient) {
+fn sync_second_client(c1: &mut TestClient, store: &Store) {
     let (init, key, _device_id) = c1
         .data_for_sync()
         .expect("Should have data for syncing second client");
 
-    let store = TestStore {};
     let mut persisted_global_state = None;
     let mut mem_cached_state = MemoryCachedState::default();
     let result = sync15::sync_multiple(
-        &[&store],
+        &[store],
         &mut persisted_global_state,
         &mut mem_cached_state,
         &init,
@@ -186,8 +182,35 @@ fn sync_second_client(c1: &mut TestClient) {
 }
 
 fn test_sync_multiple(c0: &mut TestClient, c1: &mut TestClient) {
-    sync_first_client(c0);
-    sync_second_client(c1);
+    let first_client_store = TestStore {
+        name: "c0",
+        store_sync_assoc: RefCell::new(StoreSyncAssociation::Disconnected),
+        was_reset_called: Cell::new(false),
+        test_record: RefCell::new(vec![TestRecord {
+            id: Guid::random(),
+            test1: "💖".into(),
+        }]),
+    };
+    sync_first_client(c0, &first_client_store);
+    assert_eq!(
+        first_client_store.was_reset_called.get(),
+        true,
+        "Should have called first reset"
+    );
+
+    let second_client_store = TestStore {
+        name: "c1",
+        store_sync_assoc: first_client_store.store_sync_assoc,
+        was_reset_called: Cell::new(false),
+        test_record: RefCell::default(),
+    };
+    sync_second_client(c1, &second_client_store);
+    assert_eq!(
+        second_client_store.was_reset_called.get(),
+        false,
+        "Second client shouldn't call reset"
+    );
+    // TODO: Assert that we uploaded our test record.
 }
 
 // Boilerplate...
