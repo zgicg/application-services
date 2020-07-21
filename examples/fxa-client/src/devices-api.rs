@@ -3,7 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use cli_support::prompt::prompt_string;
-use dialoguer::Select;
 use fxa_client::{device, Config, FirefoxAccount, IncomingDeviceCommand};
 use std::{
     collections::HashMap,
@@ -22,6 +21,7 @@ static SCOPES: &[&str] = &["profile", "https://identity.mozilla.com/apps/oldsync
 static DEFAULT_DEVICE_NAME: &str = "Bobo device";
 
 use anyhow::Result;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 fn load_fxa_creds() -> Result<FirefoxAccount> {
     let mut file = fs::File::open(CREDENTIALS_PATH)?;
@@ -116,43 +116,13 @@ fn main() -> Result<()> {
 
     // Menu:
     loop {
-        println!("Main menu:");
-        let mut main_menu = Select::new();
-        main_menu.items(&["Set Display Name", "Send a Tab", "Quit"]);
-        main_menu.default(0);
-        let main_menu_selection = main_menu.interact().unwrap();
-
-        match main_menu_selection {
-            0 => {
-                let new_name: String = prompt_string("New display name").unwrap();
-                // Set device display name
-                acct.lock().unwrap().set_device_name(&new_name).unwrap();
-                println!("Display name set to: {}", new_name);
-            }
-            1 => {
-                let devices = acct.lock().unwrap().get_devices(false).unwrap();
-                let devices_names: Vec<String> =
-                    devices.iter().map(|i| i.display_name.clone()).collect();
-                let mut targets_menu = Select::new();
-                targets_menu.default(0);
-                let devices_names_refs: Vec<&str> =
-                    devices_names.iter().map(AsRef::as_ref).collect();
-                targets_menu.items(&devices_names_refs);
-                println!("Choose a send-tab target:");
-                let selection = targets_menu.interact().unwrap();
-                let target = &devices[selection];
-
-                // Payload
-                let title: String = prompt_string("Title").unwrap();
-                let url: String = prompt_string("URL").unwrap();
-                acct.lock()
-                    .unwrap()
-                    .send_tab(&target.id, &title, &url)
-                    .unwrap();
-                println!("Tab sent!");
-            }
-            2 => ::std::process::exit(0),
-            _ => panic!("Invalid choice!"),
-        }
+        let now = SystemTime::now();
+        let timestamp = now
+            .duration_since(UNIX_EPOCH)
+            .expect("Time went backwards");
+        let devices = acct.lock().unwrap().get_devices(false).unwrap();
+        let devices_names: Vec<String> = devices.iter().map(|i| i.display_name.clone()).collect();
+        println!("{:?} - Got devices: {:?}", timestamp, devices_names);
+        thread::sleep(time::Duration::from_millis(500));
     }
 }
