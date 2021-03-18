@@ -3,9 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error;
-use rc_crypto::ece::{
-    Aes128GcmEceWebPush, AesGcmEceWebPush, AesGcmEncryptedBlock, EcKeyComponents, LocalKeyPair,
-};
+use rc_crypto::ece::{self, EcKeyComponents, LocalKeyPair};
 use rc_crypto::ece_crypto::RcCryptoLocalKeyPair;
 use rc_crypto::rand;
 use serde_derive::*;
@@ -20,7 +18,7 @@ pub(crate) enum VersionnedKey {
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct KeyV1 {
-    p256key: EcKeyComponents,
+    p256key: ece::EcKeyComponents,
     pub auth: Vec<u8>,
 }
 pub type Key = KeyV1;
@@ -101,7 +99,7 @@ pub trait Cryptography {
 
 pub struct Crypto;
 
-pub fn get_bytes(size: usize) -> error::Result<Vec<u8>> {
+pub fn get_random_bytes(size: usize) -> error::Result<Vec<u8>> {
     let mut bytes = vec![0u8; size];
     rand::fill(&mut bytes).map_err(|e| {
         error::ErrorKind::CryptoError(format!("Could not generate random bytes: {:?}", e))
@@ -145,7 +143,7 @@ impl Cryptography for Crypto {
         let components = key.raw_components().map_err(|e| {
             error::ErrorKind::CryptoError(format!("Could not extract key components: {:?}", e))
         })?;
-        let auth = get_bytes(SER_AUTH_LENGTH)?;
+        let auth = get_random_bytes(SER_AUTH_LENGTH)?;
         Ok(Key {
             p256key: components,
             auth,
@@ -207,7 +205,8 @@ impl Cryptography for Crypto {
                 return Err(error::ErrorKind::CryptoError("Missing salt".to_string()).into());
             }
         };
-        let block = match AesGcmEncryptedBlock::new(&dh, &salt, 4096, content.to_vec()) {
+        let block = match ece::legacy::AesGcmEncryptedBlock::new(&dh, &salt, 4096, content.to_vec())
+        {
             Ok(b) => b,
             Err(e) => {
                 return Err(error::ErrorKind::CryptoError(format!(
@@ -217,13 +216,23 @@ impl Cryptography for Crypto {
                 .into());
             }
         };
-        AesGcmEceWebPush::decrypt(&key.key_pair()?, &key.auth, &block)
-            .map_err(|_| error::ErrorKind::CryptoError("Decryption error".to_owned()).into())
+        // TODO: we should just store the raw components and not deal with
+        // the special RcCryptoLocalKeyPair class at all.
+        ece::legacy::decrypt_aesgcm(
+            &key.key_pair()?.raw_components().unwrap(),
+            &key.auth,
+            &block,
+        )
+        .map_err(|_| error::ErrorKind::CryptoError("Decryption error".to_owned()).into())
     }
 
     fn decrypt_aes128gcm(key: &Key, content: &[u8]) -> error::Result<Vec<u8>> {
-        Aes128GcmEceWebPush::decrypt(&key.key_pair()?, &key.auth, &content)
-            .map_err(|_| error::ErrorKind::CryptoError("Decryption error".to_owned()).into())
+        ece::decrypt(
+            &key.key_pair()?.raw_components().unwrap(),
+            &key.auth,
+            &content,
+        )
+        .map_err(|_| error::ErrorKind::CryptoError("Decryption error".to_owned()).into())
     }
 }
 

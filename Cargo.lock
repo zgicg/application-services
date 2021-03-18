@@ -750,12 +750,12 @@ checksum = "134951f4028bdadb9b84baf4232681efbf277da25144b9b0ad65df75946c422b"
 
 [[package]]
 name = "ece"
-version = "1.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "53d97f19730c1eb3332d0657d0f3ca72795d77c61d8eb26bdd7f15edc0c61eb2"
+version = "1.4.0-alpha1"
+source = "git+https://github.com/mozilla/rust-ece?branch=interface-cleanups#347bdbeb52b42f0ff0469ab666becb9e30f5f9ee"
 dependencies = [
  "base64",
  "byteorder",
+ "hex",
  "once_cell",
  "serde",
  "thiserror",
